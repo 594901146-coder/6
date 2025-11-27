@@ -126,6 +126,7 @@ const App: React.FC = () => {
   // --- SCANNER LOGIC ---
   useEffect(() => {
     if (isScanning && !scannerRef.current) {
+      // Delay slightly to ensure DOM is ready
       const timer = setTimeout(() => {
         const startScanner = async () => {
           if (typeof window.Html5Qrcode === 'undefined') {
@@ -137,16 +138,19 @@ const App: React.FC = () => {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
             
-            // Configuration for better scanning
+            // Rebuilt Configuration for Maximum Accuracy
+            // 1. Removed forced aspectRatio to avoid distortion
+            // 2. Added explicit qrbox to focus the algorithm
+            // 3. Requested High Definition video for clarity
             const config = { 
               fps: 10, 
-              // REMOVED qrbox constraint. 
-              // Allowing the library to scan the full video frame is much more robust
-              // and fixes issues where CSS scaling (object-fit: cover) mismatches the logic.
+              qrbox: { width: 250, height: 250 }, 
               disableFlip: false,
               videoConstraints: {
                   facingMode: "environment",
-                  // Try to use auto focus if available
+                  // Requesting HD resolution is critical for good detection
+                  width: { min: 640, ideal: 1280, max: 1920 },
+                  height: { min: 480, ideal: 720, max: 1080 },
                   focusMode: "continuous"
               }
             };
@@ -158,12 +162,13 @@ const App: React.FC = () => {
                 if (decodedText && decodedText.length > 3) {
                   if (navigator.vibrate) navigator.vibrate(50);
                   stopScanner();
-                  // Clean ID from URL if scanned from URL
                   const cleanId = decodedText.split('/').pop() || decodedText;
                   connectToTarget(cleanId);
                 }
               },
-              () => {} 
+              (errorMessage: string) => {
+                  // Ignore parse errors, they happen every frame no QR is found
+              } 
             );
           } catch (err) {
             console.warn("Scanner error:", err);
@@ -902,24 +907,28 @@ const App: React.FC = () => {
       {/* QR SCANNER FULLSCREEN OVERLAY */}
       {isScanning && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
-             {/* Force video to cover screen for immersive experience */}
+            {/* 
+              Redesigned Scanner Visuals
+              1. Removed the object-fit:cover style from video to ensure 1:1 pixel mapping for better recognition.
+              2. The video will now display in its native aspect ratio (centered), but we keep the black background for immersion.
+            */}
             <style>{`
-              #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
               @keyframes scanner-line {
                 0% { transform: translateY(0); opacity: 0; }
                 10% { opacity: 1; }
                 90% { opacity: 1; }
                 100% { transform: translateY(16rem); opacity: 0; }
               }
+              /* Hide the default HTML5-QRCode buttons if they appear */
+              #reader button { display: none; }
             `}</style>
             
-            {/* Camera Feed Container */}
-            <div id="reader" className="w-full h-full absolute inset-0"></div>
+            {/* Camera Feed Container - Will center the video naturally */}
+            <div id="reader" className="w-full h-full flex items-center justify-center bg-black"></div>
 
-            {/* Dark Overlay Mask with Cutout */}
-            <div className="absolute inset-0 pointer-events-none z-10">
-               {/* This div creates the dark overlay around the clear center box using massive box-shadow */}
-               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-72 md:h-72 border-2 border-white/20 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.85)]">
+            {/* Dark Overlay Mask with Cutout - Pure CSS masking */}
+            <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+               <div className="w-64 h-64 md:w-72 md:h-72 border-2 border-white/20 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.85)] relative">
                   {/* Corner Accents - Cyan/Indigo Gradient */}
                   <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-2xl -mt-0.5 -ml-0.5"></div>
                   <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-2xl -mt-0.5 -mr-0.5"></div>
@@ -945,7 +954,7 @@ const App: React.FC = () => {
                 </button>
             </div>
             
-            {/* Bottom Instructions REMOVED */}
+            {/* Bottom Instructions REMOVED as requested */}
         </div>
       )}
     </div>
