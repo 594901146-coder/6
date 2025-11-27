@@ -15,7 +15,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  QrCode
 } from 'lucide-react';
 
 // Main Component
@@ -32,6 +33,7 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isGeneratingId, setIsGeneratingId] = useState(false);
   const [isPeerReady, setIsPeerReady] = useState(true);
+  const [showQr, setShowQr] = useState(false);
 
   // Refs for PeerJS objects (not state to avoid re-renders)
   const peerRef = useRef<any>(null);
@@ -180,6 +182,7 @@ const App: React.FC = () => {
 
   const startAsSender = async () => {
     setIsGeneratingId(true);
+    setShowQr(false);
     try {
       const id = await generateConnectionPhrase();
       initializePeer(id);
@@ -283,6 +286,7 @@ const App: React.FC = () => {
      setConnectionStatus('Disconnected');
      setTargetPeerId('');
      setErrorMsg('');
+     setShowQr(false);
   };
 
   // --- RENDERERS ---
@@ -330,20 +334,44 @@ const App: React.FC = () => {
         <Wifi className="text-indigo-400" /> 您的房间
       </h2>
       
-      <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 mb-8 text-center">
+      <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 mb-8 text-center transition-all duration-300">
         <p className="text-sm text-slate-400 mb-2 uppercase tracking-wider font-semibold">分享此口令</p>
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 mb-2">
           <span className="text-3xl font-mono font-bold text-white tracking-tight break-all">{peerId || '...'}</span>
           {peerId && (
-            <button 
-              onClick={() => navigator.clipboard.writeText(peerId)}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white shrink-0"
-              title="复制到剪贴板"
-            >
-              <Copy size={20} />
-            </button>
+            <div className="flex gap-1 shrink-0">
+              <button 
+                onClick={() => navigator.clipboard.writeText(peerId)}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
+                title="复制到剪贴板"
+              >
+                <Copy size={20} />
+              </button>
+              <button 
+                onClick={() => setShowQr(!showQr)}
+                className={`p-2 rounded-lg transition-colors ${showQr ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700 text-slate-400 hover:text-white'}`}
+                title="显示二维码"
+              >
+                <QrCode size={20} />
+              </button>
+            </div>
           )}
         </div>
+        
+        {/* QR Code Section */}
+        {showQr && peerId && (
+          <div className="mt-4 flex flex-col items-center animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-white p-3 rounded-xl shadow-lg shadow-black/20">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} 
+                alt="Room QR Code" 
+                className="w-40 h-40"
+                loading="lazy"
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-2">扫描二维码获取房间口令</p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-6">
