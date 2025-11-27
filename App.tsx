@@ -20,7 +20,10 @@ import {
   Camera,
   Paperclip,
   ArrowUpCircle,
-  Activity
+  Activity,
+  HelpCircle,
+  Terminal,
+  Server
 } from 'lucide-react';
 
 // Main Component
@@ -41,6 +44,9 @@ const App: React.FC = () => {
   const [showQr, setShowQr] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
   
   // Chat & Transfer State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -64,6 +70,12 @@ const App: React.FC = () => {
   const currentIncomingMetaRef = useRef<FileMetadata | null>(null);
 
   // --- LIFECYCLE & HELPERS ---
+
+  const addLog = (msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 50));
+    console.log(`[AppLog] ${msg}`);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -95,7 +107,6 @@ const App: React.FC = () => {
           try {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
-            // Use a slightly smaller scan area for better performance
             const width = window.innerWidth;
             const size = Math.min(width * 0.7, 250); 
             
@@ -103,14 +114,13 @@ const App: React.FC = () => {
               { facingMode: "environment" }, 
               { fps: 15, qrbox: { width: size, height: size }, aspectRatio: 1.0 },
               (decodedText: string) => {
-                // Success callback
                 if (decodedText && decodedText.length > 5 && decodedText.includes('-')) {
                   if (navigator.vibrate) navigator.vibrate(50);
                   stopScanner();
                   connectToTarget(decodedText);
                 }
               },
-              () => {} // Ignore scan errors (scanning emptiness)
+              () => {} 
             );
           } catch (err) {
             console.warn("Scanner error:", err);
@@ -119,7 +129,7 @@ const App: React.FC = () => {
           }
         };
         startScanner();
-      }, 300); // Small delay to allow UI to render
+      }, 300); 
       return () => clearTimeout(timer);
     }
   }, [isScanning]);
@@ -139,20 +149,25 @@ const App: React.FC = () => {
 
   // --- PEER INITIALIZATION ---
   const initializePeer = useCallback((id?: string) => {
-    // If peer already exists and is open, don't recreate unless ID changed significantly
-    if (peerRef.current && !peerRef.current.destroyed) return peerRef.current;
+    if (peerRef.current && !peerRef.current.destroyed) {
+        addLog("复用现有 Peer 连接");
+        return peerRef.current;
+    }
     
     if (typeof window.Peer === 'undefined') {
-      setErrorMsg("核心组件(PeerJS)加载失败，请检查网络");
+      const msg = "核心组件(PeerJS)加载失败，请检查网络";
+      setErrorMsg(msg);
+      addLog(msg);
       setAppState(AppState.ERROR);
       return null;
     }
 
     try {
       setServerStatus('connecting');
-      // Updated ICE Servers list optimized for China (Bilibili, Xiaomi, Tencent)
+      addLog("正在初始化 P2P 节点...");
+      
       const peer = new window.Peer(id, {
-        debug: 1, // 0: None, 1: Errors, 2: Warnings, 3: All
+        debug: 1,
         config: {
           iceServers: [
             { urls: 'stun:stun.chat.bilibili.com:3478' },
@@ -160,46 +175,51 @@ const App: React.FC = () => {
             { urls: 'stun:stun.qq.com:3478' },
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:global.stun.twilio.com:3478' }
-          ]
+          ],
+          iceCandidatePoolSize: 10,
         }
       });
 
       peer.on('open', (myId: string) => {
-        console.log("My Peer ID:", myId);
+        addLog(`连接信令服务器成功。ID: ${myId}`);
         setPeerId(myId);
         setServerStatus('connected');
         setErrorMsg('');
       });
 
       peer.on('connection', (conn: any) => {
-        console.log("Incoming connection from:", conn.peer);
+        addLog(`收到来自 ${conn.peer} 的连接请求`);
         handleConnection(conn);
       });
 
       peer.on('disconnected', () => {
-        console.log("Peer disconnected from server");
+        addLog("与信令服务器断开连接");
         setServerStatus('disconnected');
-        // Auto reconnect
+        // Auto reconnect logic is tricky with PeerJS, sometimes better to let user manually retry
+        // But for short dropouts:
         setTimeout(() => {
+            if (peer && !peer.destroyed && !peer.disconnected) return;
+             addLog("尝试重连信令服务器...");
             if (peer && !peer.destroyed) peer.reconnect();
         }, 2000);
       });
 
       peer.on('close', () => {
+        addLog("P2P 节点已关闭");
         setServerStatus('disconnected');
         setPeerId('');
       });
 
       peer.on('error', (err: any) => {
-        console.error('Peer error:', err);
+        addLog(`P2P 错误: ${err.type} - ${err.message}`);
         setServerStatus('disconnected');
         setIsConnecting(false); 
         
         let msg = `连接错误: ${err.type}`;
-        if (err.type === 'peer-unavailable') msg = "找不到该房间，请核对口令或确保对方在线。";
-        else if (err.type === 'network') msg = "网络连接失败，请检查您的网络设置。";
-        else if (err.type === 'server-error') msg = "无法连接到信号服务器，请稍后重试。";
-        else if (err.type === 'unavailable-id') msg = "该口令已被占用，请刷新页面重新生成。";
+        if (err.type === 'peer-unavailable') msg = "找不到该房间。请确认口令正确且对方在线。";
+        else if (err.type === 'network') msg = "网络连接失败，无法连接到信令服务器。";
+        else if (err.type === 'server-error') msg = "信令服务器暂时不可用。";
+        else if (err.type === 'unavailable-id') msg = "ID 冲突，请重试。";
         
         setErrorMsg(msg);
       });
@@ -207,6 +227,7 @@ const App: React.FC = () => {
       peerRef.current = peer;
       return peer;
     } catch (e: any) {
+      addLog(`初始化异常: ${e.message}`);
       setErrorMsg("初始化失败: " + e.message);
       setAppState(AppState.ERROR);
       return null;
@@ -214,21 +235,20 @@ const App: React.FC = () => {
   }, []);
 
   const handleConnection = (conn: any) => {
-    // If we have an existing open connection, close it first to avoid zombies
     if (connRef.current && connRef.current.open) {
         connRef.current.close();
     }
     
     connRef.current = conn;
+    addLog("正在建立数据通道...");
     
     conn.on('open', () => {
-      console.log("Connection Established!");
+      addLog(`数据通道已建立! 与 ${conn.peer} 连接成功`);
       setConnectionStatus('Connected');
       setIsConnecting(false); 
       setErrorMsg('');
       setAppState(AppState.CHAT);
       
-      // Clear any pending timeouts
       if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
           connectionTimeoutRef.current = null;
@@ -240,29 +260,34 @@ const App: React.FC = () => {
     });
 
     conn.on('close', () => {
-      console.log("Connection Closed");
+      addLog("对方断开了连接");
       setConnectionStatus('Disconnected');
       setIsConnecting(false);
       addSystemMessage("对方已断开连接");
     });
     
     conn.on('error', (err: any) => {
-      console.error("Conn error", err);
+      addLog(`连接错误: ${err}`);
       setIsConnecting(false);
       setConnectionStatus('Disconnected');
-      // If we were connecting, show error. If chatting, show system message
       if (appState === AppState.CHAT) {
           addSystemMessage("连接发生错误");
       } else {
           setErrorMsg("连接中断，请重试");
       }
     });
+    
+    // Check ICE state if available
+    if (conn.peerConnection) {
+        conn.peerConnection.oniceconnectionstatechange = () => {
+            addLog(`ICE 状态变更: ${conn.peerConnection.iceConnectionState}`);
+        };
+    }
   };
 
   // --- DATA HANDLING ---
 
   const handleIncomingData = (data: any) => {
-    // Binary check
     const isBinary = data instanceof ArrayBuffer || data instanceof Uint8Array || data instanceof Blob || (data && data.buffer instanceof ArrayBuffer);
     
     if (isBinary) {
@@ -285,6 +310,7 @@ const App: React.FC = () => {
 
         case 'FILE_START':
           const meta = data.payload as FileMetadata;
+          addLog(`开始接收文件: ${meta.name} (${meta.size} bytes)`);
           currentIncomingMetaRef.current = meta;
           incomingFileIdRef.current = meta.id;
           receivedChunksRef.current = [];
@@ -301,12 +327,12 @@ const App: React.FC = () => {
             timestamp: Date.now()
           }]);
           
-          // Ack to start streaming
           connRef.current.send({ type: 'ACK_FILE_START' });
           break;
         
         case 'ACK_FILE_START':
            if (pendingFileTransferRef.current) {
+             addLog("对方已准备好接收文件，开始发送...");
              streamFile(pendingFileTransferRef.current);
              pendingFileTransferRef.current = null;
            }
@@ -333,6 +359,7 @@ const App: React.FC = () => {
     }));
 
     if (receivedSizeRef.current >= total) {
+        addLog("文件接收完成，正在合成...");
         const blob = new Blob(receivedChunksRef.current, { type: currentIncomingMetaRef.current.type });
         const url = URL.createObjectURL(blob);
         
@@ -369,13 +396,18 @@ const App: React.FC = () => {
     setAppState(AppState.SETUP);
     setShowQr(false);
     setErrorMsg('');
+    setLogs([]); // Clear logs for new session
+    addLog("开始创建房间...");
     try {
       const id = await generateConnectionPhrase();
+      addLog(`生成 ID: ${id}`);
       initializePeer(id);
     } catch (e: any) {
+      addLog(`ID生成失败: ${e.message}`);
       setErrorMsg(e.message);
-      // Fallback ID if GenAI fails completely
-      initializePeer(`nexus-${Math.floor(Math.random()*10000)}`);
+      const fallbackId = `nexus-${Math.floor(Math.random()*10000)}`;
+      addLog(`使用随机ID: ${fallbackId}`);
+      initializePeer(fallbackId);
     } finally {
       setIsGeneratingId(false);
     }
@@ -385,11 +417,14 @@ const App: React.FC = () => {
     setRole('receiver');
     setAppState(AppState.SETUP);
     setErrorMsg('');
+    setLogs([]);
+    addLog("准备加入房间...");
     initializePeer(); 
   };
 
   const connectToTarget = (overrideId?: string) => {
     if (!peerRef.current || peerRef.current.destroyed) {
+        addLog("Peer 实例未就绪，重新初始化...");
         initializePeer();
     }
     
@@ -397,7 +432,9 @@ const App: React.FC = () => {
     const target = rawId?.trim().toLowerCase(); 
     
     if (!peerRef.current?.id) {
-        setErrorMsg("正在初始化网络，请稍候再试...");
+        const msg = "正在初始化网络(获取自身ID)，请稍候...";
+        setErrorMsg(msg);
+        addLog(msg);
         return;
     }
     if (!target) {
@@ -413,27 +450,32 @@ const App: React.FC = () => {
 
     setIsConnecting(true);
     setErrorMsg('');
+    addLog(`发起连接请求 -> 目标: ${target}`);
     
-    // Clear previous connection attempt
     if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
     if (connRef.current) connRef.current.close();
 
-    // Set a strict timeout
     connectionTimeoutRef.current = setTimeout(() => {
-        if (isConnecting) { // Only if still trying
+        if (isConnecting) {
+             const msg = "连接请求超时(15s)。请确认对方在线且网络畅通。";
              setIsConnecting(false);
-             setErrorMsg("连接请求超时。请确认：\n1. 对方仍在“等待连接”页面\n2. 口令完全正确\n3. 双方网络通畅");
+             setErrorMsg(msg);
+             addLog(msg);
              if (connRef.current) connRef.current.close();
         }
     }, 15000);
 
     try {
-        // Connect reliably
-        const conn = peerRef.current.connect(target, { reliable: true });
+        const conn = peerRef.current.connect(target, { 
+            reliable: true,
+            serialization: 'json'
+        });
         handleConnection(conn);
     } catch (e: any) {
         console.error("Connect exception:", e);
-        setErrorMsg("连接请求失败: " + e.message);
+        const msg = "连接请求异常: " + e.message;
+        setErrorMsg(msg);
+        addLog(msg);
         setIsConnecting(false);
     }
   };
@@ -489,6 +531,7 @@ const App: React.FC = () => {
             timestamp: Date.now()
         }]);
 
+        addLog(`请求发送文件: ${file.name}`);
         connRef.current.send({ type: 'FILE_START', payload: meta });
         pendingFileTransferRef.current = file;
         setIsTransferring(true);
@@ -497,7 +540,7 @@ const App: React.FC = () => {
   };
 
   const streamFile = (file: File) => {
-      const chunkSize = 32 * 1024; // 32KB chunks for better stability
+      const chunkSize = 32 * 1024; 
       let offset = 0;
       
       const readSlice = (o: number) => {
@@ -519,9 +562,9 @@ const App: React.FC = () => {
                     }));
 
                     if (offset < file.size) {
-                        // Use requestAnimationFrame for smoother UI during heavy transfer
                         requestAnimationFrame(() => readSlice(offset));
                     } else {
+                        addLog("文件发送完成");
                         setIsTransferring(false);
                         setMessages(prev => prev.map(m => {
                           if (m.fileMeta?.name === file.name && m.sender === 'me') {
@@ -532,6 +575,7 @@ const App: React.FC = () => {
                     }
                   } catch (err) {
                       console.error("Send error", err);
+                      addLog("发送中断: " + err);
                       setIsTransferring(false);
                       addSystemMessage("文件发送中断");
                   }
@@ -582,10 +626,13 @@ const App: React.FC = () => {
 
   const renderSetup = () => (
     <div className="glass-panel p-8 rounded-2xl max-w-lg w-full animate-in slide-in-from-bottom-4 duration-300 relative">
-      <div className="absolute top-4 right-4">
-           {serverStatus === 'connecting' && <div className="text-yellow-500 text-xs flex items-center gap-1"><Loader2 size={10} className="animate-spin"/> 连接服务器...</div>}
-           {serverStatus === 'disconnected' && <div className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={10}/> 服务器断开</div>}
-           {serverStatus === 'connected' && <div className="text-emerald-500 text-xs flex items-center gap-1"><Zap size={10}/> 服务器在线</div>}
+      <div className="absolute top-4 right-4 flex gap-2">
+           <button onClick={() => setShowLogs(!showLogs)} className={`p-1 rounded hover:bg-slate-700 ${showLogs ? 'text-indigo-400' : 'text-slate-500'}`} title="显示/隐藏连接日志">
+               <Terminal size={16} />
+           </button>
+           <button onClick={() => setShowHelp(true)} className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-indigo-400" title="为什么需要连接服务器？">
+               <HelpCircle size={16} />
+           </button>
       </div>
 
       <div className="flex justify-between items-center mb-6">
@@ -649,6 +696,7 @@ const App: React.FC = () => {
              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-400 bg-slate-900/30 rounded-xl border border-dashed border-slate-700">
                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
                <p className="animate-pulse text-sm">正在连接信令服务器...</p>
+               <div className="text-xs text-slate-500">连接耗时较长属于正常现象</div>
              </div>
            ) : (
              <>
@@ -672,9 +720,13 @@ const App: React.FC = () => {
                 </div>
                 
                 {errorMsg && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-start gap-2">
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-start gap-2 animate-in fade-in">
                         <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-red-300 text-sm whitespace-pre-wrap">{errorMsg}</p>
+                        <div className="text-red-300 text-sm whitespace-pre-wrap">
+                            <p className="font-bold mb-1">连接失败</p>
+                            {errorMsg}
+                            <button onClick={() => setShowLogs(true)} className="block mt-2 text-red-200 underline text-xs">查看技术日志</button>
+                        </div>
                     </div>
                 )}
 
@@ -689,6 +741,17 @@ const App: React.FC = () => {
                 </Button>
              </>
            )}
+        </div>
+      )}
+
+      {/* DEBUG LOGS OVERLAY */}
+      {showLogs && (
+        <div className="mt-4 bg-slate-950 p-3 rounded-lg border border-slate-800 text-[10px] font-mono text-green-400/80 h-32 overflow-y-auto">
+            <div className="flex justify-between sticky top-0 bg-slate-950 pb-1 mb-1 border-b border-slate-800">
+                <span className="font-bold text-slate-400">连接日志 (Diagnostics)</span>
+                <span className="cursor-pointer text-slate-500 hover:text-white" onClick={() => setLogs([])}>清空</span>
+            </div>
+            {logs.length === 0 ? <span className="opacity-50">暂无日志...</span> : logs.map((l, i) => <div key={i}>{l}</div>)}
         </div>
       )}
 
@@ -867,6 +930,36 @@ const App: React.FC = () => {
             {serverStatus === 'connecting' && <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg"><Loader2 size={12} className="animate-spin"/> 连接中...</div>}
             {serverStatus === 'disconnected' && appState !== AppState.HOME && <div className="bg-red-500/20 border border-red-500/30 text-red-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg"><Activity size={12}/> 离线</div>}
        </div>
+
+       {/* HELP MODAL */}
+       {showHelp && (
+           <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowHelp(false)}>
+               <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                   <div className="flex justify-between items-center mb-4">
+                       <h3 className="text-xl font-bold flex items-center gap-2"><Server className="text-indigo-400" size={24}/> 为什么 P2P 需要服务器？</h3>
+                       <button onClick={() => setShowHelp(false)} className="text-slate-500 hover:text-white"><X size={24}/></button>
+                   </div>
+                   <div className="space-y-4 text-slate-300 text-sm leading-relaxed">
+                       <p>这是一个极好的问题。虽然 P2P（Peer-to-Peer）意味着“设备到设备”的直接传输，但在建立连接之前，您的设备需要“找到”对方。</p>
+                       
+                       <div className="bg-slate-800/50 p-3 rounded-lg">
+                           <strong className="text-white block mb-1">1. 信令服务器 (Signaling)</strong>
+                           <p>就像打电话需要查电话簿一样，两台设备需要一个中间人来交换 IP 地址。一旦交换完成，服务器就会“退场”，数据直接在两台设备间传输。</p>
+                       </div>
+
+                       <div className="bg-slate-800/50 p-3 rounded-lg">
+                           <strong className="text-white block mb-1">2. 打洞服务器 (STUN)</strong>
+                           <p>大多数电脑都在路由器（WiFi）后面。STUN 服务器帮助您的电脑“看清”自己的公网地址，从而穿透防火墙。</p>
+                       </div>
+                       
+                       <p className="text-xs text-emerald-400 font-bold mt-2 flex items-center gap-1">
+                           <ShieldCheck size={14}/> 您的文件绝对不会上传到任何服务器。
+                       </p>
+                   </div>
+                   <button onClick={() => setShowHelp(false)} className="w-full mt-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold">我明白了</button>
+               </div>
+           </div>
+       )}
 
        {/* Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
