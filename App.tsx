@@ -896,27 +896,55 @@ const App: React.FC = () => {
       {isScanning && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
              {/* Force video to cover screen for immersive experience */}
-            <style>{`#reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; }`}</style>
+            <style>{`
+              #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
+              @keyframes scanner-line {
+                0% { transform: translateY(0); opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { transform: translateY(18rem); opacity: 0; }
+              }
+            `}</style>
             
-            <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between z-20 bg-gradient-to-b from-black/80 to-transparent pt-safe">
-                <div className="text-white font-bold flex gap-3 items-center text-lg"><Camera size={24} className="text-emerald-500" /> 扫描二维码</div>
-                <button onClick={stopScanner} className="bg-white/10 hover:bg-white/20 p-3 rounded-full text-white transition-all backdrop-blur-md"><X size={24} /></button>
+            {/* Camera Feed Container */}
+            <div id="reader" className="w-full h-full absolute inset-0"></div>
+
+            {/* Dark Overlay Mask with Cutout */}
+            <div className="absolute inset-0 pointer-events-none z-10">
+               {/* This div creates the dark overlay around the clear center box using massive box-shadow */}
+               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border-2 border-white/20 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.85)]">
+                  {/* Corner Accents - Cyan/Indigo Gradient */}
+                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-2xl -mt-0.5 -ml-0.5"></div>
+                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-2xl -mt-0.5 -mr-0.5"></div>
+                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-500 rounded-bl-2xl -mb-0.5 -ml-0.5"></div>
+                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-500 rounded-br-2xl -mb-0.5 -mr-0.5"></div>
+                  
+                  {/* Scanning Laser Line */}
+                  <div className="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-emerald-500/0 via-emerald-500/20 to-emerald-500/0 animate-[scanner-line_2s_linear_infinite] border-b-2 border-emerald-400/50 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+               </div>
             </div>
-            <div id="reader" className="w-full h-full"></div>
-            
-            <div className="absolute pointer-events-none inset-0 flex items-center justify-center z-10">
-                <div className="w-64 h-64 md:w-72 md:h-72 border-[3px] border-emerald-400/50 rounded-3xl relative shadow-[0_0_100px_rgba(16,185,129,0.3)]">
-                    <div className="absolute inset-0 border-[3px] border-white/20 rounded-3xl"></div>
-                    <div className="absolute top-4 left-4 right-4 h-0.5 bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,1)] animate-[scan_2s_linear_infinite]"></div>
-                    {/* Corner accents */}
-                    <div className="absolute top-[-3px] left-[-3px] w-6 h-6 border-t-[3px] border-l-[3px] border-emerald-400 rounded-tl-3xl"></div>
-                    <div className="absolute top-[-3px] right-[-3px] w-6 h-6 border-t-[3px] border-r-[3px] border-emerald-400 rounded-tr-3xl"></div>
-                    <div className="absolute bottom-[-3px] left-[-3px] w-6 h-6 border-b-[3px] border-l-[3px] border-emerald-400 rounded-bl-3xl"></div>
-                    <div className="absolute bottom-[-3px] right-[-3px] w-6 h-6 border-b-[3px] border-r-[3px] border-emerald-400 rounded-br-3xl"></div>
+
+            {/* Top Bar */}
+            <div className="absolute top-0 left-0 w-full p-6 z-20 pt-safe flex justify-between items-start">
+                <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 text-white font-medium">
+                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                   <span className="text-sm tracking-wide">REC</span>
                 </div>
+                <button 
+                  onClick={stopScanner} 
+                  className="bg-black/40 backdrop-blur-md border border-white/10 w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                >
+                  <X size={20} />
+                </button>
             </div>
-            <div className="absolute bottom-20 text-center w-full z-20 px-4">
-                <p className="text-white font-medium bg-black/60 inline-block px-6 py-3 rounded-full backdrop-blur-xl border border-white/10 shadow-2xl text-sm md:text-base">请将二维码对准扫描框</p>
+            
+            {/* Bottom Instructions */}
+            <div className="absolute bottom-24 w-full z-20 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-4 duration-500 delay-300">
+                <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-2xl flex flex-col items-center text-center max-w-xs shadow-2xl">
+                    <ScanLine size={32} className="text-emerald-400 mb-2" />
+                    <h3 className="text-white font-bold text-lg">扫描二维码</h3>
+                    <p className="text-slate-400 text-sm mt-1">将发送方的二维码放入框内即可自动连接</p>
+                </div>
             </div>
         </div>
       )}
