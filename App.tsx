@@ -136,12 +136,17 @@ const App: React.FC = () => {
           try {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
+            // On mobile, use responsive size logic
             const width = window.innerWidth;
-            const size = Math.min(width * 0.7, 250); 
+            const size = Math.min(width * 0.7, 280); 
             
             await html5QrCode.start(
               { facingMode: "environment" }, 
-              { fps: 15, qrbox: { width: size, height: size }, aspectRatio: 1.0 },
+              { 
+                  fps: 15, 
+                  qrbox: { width: size, height: size },
+                  aspectRatio: width / window.innerHeight 
+              },
               (decodedText: string) => {
                 if (decodedText && decodedText.length > 3) {
                   if (navigator.vibrate) navigator.vibrate(50);
@@ -696,19 +701,19 @@ const App: React.FC = () => {
   // --- RENDERERS ---
 
   const renderHome = () => (
-    <div className="flex flex-col md:flex-row gap-8 max-w-4xl w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+    <div className="flex flex-col md:flex-row gap-6 md:gap-8 max-w-4xl w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
       <div 
         onClick={() => { startRoom(); }}
         className="flex-1 group cursor-pointer relative"
       >
         <div className="absolute inset-0 bg-indigo-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
-        <div className="glass-panel h-72 rounded-3xl p-8 flex flex-col items-center justify-center border border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 hover:border-indigo-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]">
-          <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6 group-hover:bg-indigo-600/20 group-hover:scale-110 transition-all duration-300 border border-white/10 group-hover:border-indigo-500/50">
-            {isGeneratingId ? <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" /> : <Wifi className="w-10 h-10 text-slate-300 group-hover:text-indigo-400 transition-colors" />}
+        <div className="glass-panel h-64 md:h-72 rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center border border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 hover:border-indigo-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]">
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-5 md:mb-6 group-hover:bg-indigo-600/20 group-hover:scale-110 transition-all duration-300 border border-white/10 group-hover:border-indigo-500/50">
+            {isGeneratingId ? <Loader2 className="w-8 h-8 md:w-10 md:h-10 text-indigo-400 animate-spin" /> : <Wifi className="w-8 h-8 md:w-10 md:h-10 text-slate-300 group-hover:text-indigo-400 transition-colors" />}
           </div>
-          <h2 className="text-3xl font-bold mb-3 text-white group-hover:text-indigo-300 transition-colors">我要发送</h2>
-          <p className="text-slate-400 text-center font-medium group-hover:text-slate-300">创建加密房间 • 生成口令</p>
-          <div className="mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+          <h2 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-white group-hover:text-indigo-300 transition-colors">我要发送</h2>
+          <p className="text-slate-400 text-sm md:text-base text-center font-medium group-hover:text-slate-300">创建加密房间 • 生成口令</p>
+          <div className="mt-4 md:mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
              <span className="text-indigo-400 flex items-center gap-1 text-sm font-bold">开始 <ArrowRight size={14}/></span>
           </div>
         </div>
@@ -719,13 +724,13 @@ const App: React.FC = () => {
         className="flex-1 group cursor-pointer relative"
       >
         <div className="absolute inset-0 bg-emerald-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
-        <div className="glass-panel h-72 rounded-3xl p-8 flex flex-col items-center justify-center border border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 hover:border-emerald-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.2)]">
-          <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6 group-hover:bg-emerald-600/20 group-hover:scale-110 transition-all duration-300 border border-white/10 group-hover:border-emerald-500/50">
-            <Download className="w-10 h-10 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+        <div className="glass-panel h-64 md:h-72 rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center border border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 hover:border-emerald-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-5 md:mb-6 group-hover:bg-emerald-600/20 group-hover:scale-110 transition-all duration-300 border border-white/10 group-hover:border-emerald-500/50">
+            <Download className="w-8 h-8 md:w-10 md:h-10 text-slate-300 group-hover:text-emerald-400 transition-colors" />
           </div>
-          <h2 className="text-3xl font-bold mb-3 text-white group-hover:text-emerald-300 transition-colors">我要接收</h2>
-          <p className="text-slate-400 text-center font-medium group-hover:text-slate-300">输入口令 • 扫码连接</p>
-          <div className="mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+          <h2 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-white group-hover:text-emerald-300 transition-colors">我要接收</h2>
+          <p className="text-slate-400 text-sm md:text-base text-center font-medium group-hover:text-slate-300">输入口令 • 扫码连接</p>
+          <div className="mt-4 md:mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
              <span className="text-emerald-400 flex items-center gap-1 text-sm font-bold">加入 <ArrowRight size={14}/></span>
           </div>
         </div>
@@ -734,31 +739,31 @@ const App: React.FC = () => {
   );
 
   const renderSetup = () => (
-    <div className="glass-panel p-8 rounded-3xl max-w-lg w-full animate-in slide-in-from-bottom-8 duration-500 relative border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] bg-slate-900/60 backdrop-blur-2xl">
+    <div className="glass-panel p-6 md:p-8 rounded-3xl max-w-lg w-full animate-in slide-in-from-bottom-8 duration-500 relative border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] bg-slate-900/60 backdrop-blur-2xl">
       {/* Consolidated Header with Toolbar */}
-      <div className="flex justify-between items-start mb-8">
-        <div className="flex items-center gap-4">
-             <div className={`p-3 rounded-2xl ${role === 'sender' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                {role === 'sender' ? <Wifi size={24} /> : <Download size={24} />}
+      <div className="flex justify-between items-start mb-6 md:mb-8">
+        <div className="flex items-center gap-3 md:gap-4">
+             <div className={`p-2.5 md:p-3 rounded-2xl ${role === 'sender' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                {role === 'sender' ? <Wifi size={20} className="md:w-6 md:h-6" /> : <Download size={20} className="md:w-6 md:h-6" />}
              </div>
              <div>
-                 <h2 className="text-2xl font-bold text-white leading-none mb-1">{role === 'sender' ? '等待连接' : '加入传输'}</h2>
-                 <p className="text-sm text-slate-400">{role === 'sender' ? '分享下方口令' : '连接到发送方'}</p>
+                 <h2 className="text-xl md:text-2xl font-bold text-white leading-none mb-1">{role === 'sender' ? '等待连接' : '加入传输'}</h2>
+                 <p className="text-xs md:text-sm text-slate-400">{role === 'sender' ? '分享下方口令' : '连接到发送方'}</p>
              </div>
         </div>
 
         {/* Toolbar Group */}
-        <div className="flex items-center gap-1 bg-slate-800/60 p-1.5 rounded-xl border border-white/5 backdrop-blur-sm">
-           <button onClick={() => setShowLogs(!showLogs)} className={`p-2 rounded-lg transition-colors ${showLogs ? 'text-indigo-400 bg-indigo-500/20' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="查看系统日志">
-               <Terminal size={18} />
+        <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl border border-white/5 backdrop-blur-sm">
+           <button onClick={() => setShowLogs(!showLogs)} className={`p-1.5 md:p-2 rounded-lg transition-colors ${showLogs ? 'text-indigo-400 bg-indigo-500/20' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="查看系统日志">
+               <Terminal size={16} className="md:w-[18px] md:h-[18px]" />
            </button>
            <div className="w-px h-4 bg-white/10 mx-0.5"></div>
-           <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="核心技术原理">
-               <Sparkles size={18} />
+           <button onClick={() => setShowHelp(true)} className="p-1.5 md:p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="核心技术原理">
+               <Sparkles size={16} className="md:w-[18px] md:h-[18px]" />
            </button>
            <div className="w-px h-4 bg-white/10 mx-0.5"></div>
-           <button onClick={exitChat} className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="返回首页">
-               <X size={18} />
+           <button onClick={exitChat} className="p-1.5 md:p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="返回首页">
+               <X size={16} className="md:w-[18px] md:h-[18px]" />
            </button>
         </div>
       </div>
@@ -772,7 +777,7 @@ const App: React.FC = () => {
                 {isGeneratingId ? (
                     <Loader2 className="animate-spin text-white w-8 h-8" />
                 ) : (
-                    <span className="text-4xl font-mono font-bold text-white tracking-tight drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] select-all">
+                    <span className="text-3xl md:text-4xl font-mono font-bold text-white tracking-tight drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] select-all break-all">
                         {peerId || '...'}
                     </span>
                 )}
@@ -785,13 +790,13 @@ const App: React.FC = () => {
                             const btn = document.getElementById('copy-btn');
                             if(btn) { btn.innerHTML = '已复制'; setTimeout(() => btn.innerHTML = '复制口令', 1000); }
                         }} 
-                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
+                        className="flex items-center gap-2 px-4 py-2.5 md:px-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
                     >
                         <Copy size={16} /> <span id="copy-btn">复制口令</span>
                     </button>
                     <button 
                         onClick={() => setShowQr(!showQr)} 
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all border ${showQr ? 'bg-white text-slate-900 border-white' : 'bg-transparent text-slate-300 border-slate-600 hover:border-slate-400 hover:text-white'}`}
+                        className={`flex items-center gap-2 px-4 py-2.5 md:px-5 rounded-xl text-sm font-medium transition-all border ${showQr ? 'bg-white text-slate-900 border-white' : 'bg-transparent text-slate-300 border-slate-600 hover:border-slate-400 hover:text-white'}`}
                     >
                         <QrCode size={16} /> 二维码
                     </button>
@@ -801,7 +806,7 @@ const App: React.FC = () => {
             <div className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${showQr ? 'max-h-64 mt-6' : 'max-h-0'}`}>
                 <div className="flex flex-col items-center">
                     <div className="bg-white p-3 rounded-2xl shadow-xl">
-                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-40 h-40 mix-blend-multiply" />
+                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-36 h-36 md:w-40 md:h-40 mix-blend-multiply" />
                     </div>
                 </div>
             </div>
@@ -819,7 +824,7 @@ const App: React.FC = () => {
         <div className="space-y-6">
            {/* Connection readiness check */}
            {!peerId ? (
-             <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-400 bg-slate-950/30 rounded-2xl border border-dashed border-slate-700/50">
+             <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-400 bg-slate-900/50 rounded-2xl border border-dashed border-slate-700/50">
                <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
                <p className="animate-pulse font-medium">正在初始化安全连接...</p>
              </div>
@@ -836,8 +841,8 @@ const App: React.FC = () => {
                         setTargetPeerId(e.target.value);
                         if(errorMsg) setErrorMsg(''); 
                     }}
-                    placeholder="输入房间口令 (例如：neon-wolf-123)"
-                    className={`w-full bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-700 focus:border-emerald-500'} text-white pl-12 pr-14 py-4 rounded-xl focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-lg transition-all shadow-inner`}
+                    placeholder="输入房间口令"
+                    className={`w-full bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-700 focus:border-emerald-500'} text-white pl-12 pr-14 py-4 rounded-xl focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-base md:text-lg transition-all shadow-inner`}
                   />
                   <button 
                     onClick={() => setIsScanning(true)} 
@@ -866,7 +871,7 @@ const App: React.FC = () => {
                   onClick={() => connectToTarget()} 
                   variant="primary" 
                   isLoading={isConnecting}
-                  className="w-full !bg-emerald-600 hover:!bg-emerald-500 shadow-lg shadow-emerald-500/25 !py-4 !text-lg !rounded-xl"
+                  className="w-full !bg-emerald-600 hover:!bg-emerald-500 shadow-lg shadow-emerald-500/25 !py-3.5 md:!py-4 !text-base md:!text-lg !rounded-xl"
                   icon={<ArrowRight size={20} />}
                 >
                   {isConnecting ? `正在建立连接 ${retryCount > 0 ? `(${retryCount}/3)` : ''}...` : '立即连接'}
@@ -890,14 +895,17 @@ const App: React.FC = () => {
       {/* QR SCANNER FULLSCREEN OVERLAY */}
       {isScanning && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
-            <div className="absolute top-0 w-full p-6 flex justify-between z-20 bg-gradient-to-b from-black/90 to-transparent">
+             {/* Force video to cover screen for immersive experience */}
+            <style>{`#reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; }`}</style>
+            
+            <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between z-20 bg-gradient-to-b from-black/80 to-transparent pt-safe">
                 <div className="text-white font-bold flex gap-3 items-center text-lg"><Camera size={24} className="text-emerald-500" /> 扫描二维码</div>
                 <button onClick={stopScanner} className="bg-white/10 hover:bg-white/20 p-3 rounded-full text-white transition-all backdrop-blur-md"><X size={24} /></button>
             </div>
-            <div id="reader" className="w-full h-full object-cover opacity-80"></div>
+            <div id="reader" className="w-full h-full"></div>
             
             <div className="absolute pointer-events-none inset-0 flex items-center justify-center z-10">
-                <div className="w-72 h-72 border-[3px] border-emerald-400/50 rounded-3xl relative shadow-[0_0_100px_rgba(16,185,129,0.3)]">
+                <div className="w-64 h-64 md:w-72 md:h-72 border-[3px] border-emerald-400/50 rounded-3xl relative shadow-[0_0_100px_rgba(16,185,129,0.3)]">
                     <div className="absolute inset-0 border-[3px] border-white/20 rounded-3xl"></div>
                     <div className="absolute top-4 left-4 right-4 h-0.5 bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,1)] animate-[scan_2s_linear_infinite]"></div>
                     {/* Corner accents */}
@@ -907,8 +915,8 @@ const App: React.FC = () => {
                     <div className="absolute bottom-[-3px] right-[-3px] w-6 h-6 border-b-[3px] border-r-[3px] border-emerald-400 rounded-br-3xl"></div>
                 </div>
             </div>
-            <div className="absolute bottom-20 text-center w-full z-20">
-                <p className="text-white font-medium bg-black/60 inline-block px-8 py-3 rounded-full backdrop-blur-xl border border-white/10 shadow-2xl">请将二维码对准扫描框</p>
+            <div className="absolute bottom-20 text-center w-full z-20 px-4">
+                <p className="text-white font-medium bg-black/60 inline-block px-6 py-3 rounded-full backdrop-blur-xl border border-white/10 shadow-2xl text-sm md:text-base">请将二维码对准扫描框</p>
             </div>
         </div>
       )}
@@ -916,38 +924,38 @@ const App: React.FC = () => {
   );
 
   const renderChat = () => (
-    <div className="w-full max-w-3xl h-[85vh] flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl shadow-black/50 animate-in fade-in zoom-in-95 duration-500 border border-white/10">
+    <div className="w-full h-[100dvh] md:h-[85vh] md:max-w-3xl flex flex-col glass-panel md:rounded-3xl rounded-none overflow-hidden shadow-2xl md:shadow-black/50 animate-in fade-in zoom-in-95 duration-500 md:border border-white/10 bg-[#020617] md:bg-transparent">
       {/* CHAT HEADER */}
-      <div className="p-5 bg-slate-900/80 border-b border-white/5 flex justify-between items-center backdrop-blur-xl relative z-20">
-         <div className="flex items-center gap-4">
-             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg ${role === 'sender' ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-indigo-500/20' : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20'}`}>
-                 {role === 'sender' ? <Wifi size={24} /> : <Download size={24} />}
+      <div className="p-4 md:p-5 bg-slate-900/80 border-b border-white/5 flex justify-between items-center backdrop-blur-xl relative z-20 pt-safe-top">
+         <div className="flex items-center gap-3 md:gap-4">
+             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg ${role === 'sender' ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-indigo-500/20' : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20'}`}>
+                 {role === 'sender' ? <Wifi size={20} className="md:w-6 md:h-6" /> : <Download size={20} className="md:w-6 md:h-6" />}
              </div>
              <div>
-                 <h3 className="font-bold text-white text-lg tracking-tight">加密传输通道</h3>
+                 <h3 className="font-bold text-white text-base md:text-lg tracking-tight">加密传输通道</h3>
                  <div className="flex items-center gap-2 mt-0.5">
-                     <span className={`relative flex h-2.5 w-2.5`}>
+                     <span className={`relative flex h-2 w-2 md:h-2.5 md:w-2.5`}>
                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                       <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-emerald-500"></span>
                      </span>
-                     <span className="text-xs text-emerald-400 font-medium tracking-wide uppercase">Secure Connection</span>
+                     <span className="text-[10px] md:text-xs text-emerald-400 font-medium tracking-wide uppercase">Secure Connection</span>
                  </div>
              </div>
          </div>
-         <button onClick={exitChat} className="p-3 hover:bg-white/5 rounded-full text-slate-400 hover:text-red-400 transition-all border border-transparent hover:border-white/5" title="断开连接">
+         <button onClick={exitChat} className="p-2 md:p-3 hover:bg-white/5 rounded-full text-slate-400 hover:text-red-400 transition-all border border-transparent hover:border-white/5" title="断开连接">
              <X size={20} />
          </button>
       </div>
 
       {/* CHAT MESSAGES AREA */}
-      <div className="flex-1 overflow-y-auto p-6 scroll-smooth bg-transparent relative">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth bg-transparent relative">
           {/* Subtle pattern in chat background */}
           <div className="absolute inset-0 opacity-5 pointer-events-none" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
 
           {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full opacity-50 animate-in fade-in duration-1000">
-                  <div className="w-24 h-24 bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-white/5">
-                    <ShieldCheck className="w-12 h-12 text-slate-500" />
+                  <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-white/5">
+                    <ShieldCheck className="w-10 h-10 md:w-12 md:h-12 text-slate-500" />
                   </div>
                   <p className="text-slate-300 font-medium text-lg">通道已建立</p>
                   <p className="text-slate-500 text-sm mt-2 max-w-xs text-center">所有数据通过 WebRTC P2P 协议端到端加密传输，不经过第三方服务器。</p>
@@ -962,10 +970,8 @@ const App: React.FC = () => {
               return (
                   <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isSequence ? 'mt-1' : 'mt-6'} animate-in slide-in-from-bottom-2 duration-300 group`}>
                       
-                      {/* Avatar for Peer (Only show if not sequence or always show for structure? Let's show only on top or simple layout. Let's do simple layout: Avatar always there but hidden if sequence? No, let's keep it clean.) 
-                          Actually, for P2P 1on1, avatars are nice. */}
                       {!isMe && (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mr-3 border border-white/10 shadow-sm transition-opacity ${isSequence ? 'opacity-0' : 'bg-slate-800 text-slate-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mr-2 md:mr-3 border border-white/10 shadow-sm transition-opacity ${isSequence ? 'opacity-0' : 'bg-slate-800 text-slate-400'}`}>
                            {!isSequence && <User size={14} />}
                         </div>
                       )}
@@ -975,13 +981,11 @@ const App: React.FC = () => {
                           ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white border border-indigo-400/20' 
                           : 'bg-slate-800 text-slate-100 border border-slate-700/50'
                       } ${
-                          // Dynamic Border Radius logic
                           isMe 
                             ? (isSequence ? 'rounded-2xl rounded-tr-md' : 'rounded-2xl rounded-tr-sm') 
                             : (isSequence ? 'rounded-2xl rounded-tl-md' : 'rounded-2xl rounded-tl-sm')
                       }`}>
-                          {/* Message Content Container */}
-                          <div className={`${msg.type === 'file' ? 'p-2' : 'px-4 py-3'}`}>
+                          <div className={`${msg.type === 'file' ? 'p-2' : 'px-3 py-2.5 md:px-4 md:py-3'}`}>
                               {/* Text Content */}
                               {msg.type === 'text' && <p className="break-words leading-relaxed whitespace-pre-wrap text-[15px]">{msg.content}</p>}
 
@@ -1026,7 +1030,7 @@ const App: React.FC = () => {
                               )}
                           </div>
 
-                          {/* Timestamp & Status (only show on hover or for last message) */}
+                          {/* Timestamp & Status */}
                           <div className={`text-[10px] flex items-center gap-1 absolute -bottom-5 ${isMe ? 'right-0' : 'left-0'} font-medium text-slate-500 transition-opacity ${isSequence ? 'opacity-0 group-hover:opacity-100' : 'opacity-60'}`}>
                               {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                               {isMe && <CheckCheck size={14} className={msg.status === 'completed' || msg.type === 'text' ? "text-indigo-400" : "text-slate-600"} />}
@@ -1040,8 +1044,8 @@ const App: React.FC = () => {
       </div>
 
       {/* INPUT AREA */}
-      <div className="p-5 bg-slate-900/90 border-t border-white/5 backdrop-blur-xl z-20">
-          <div className="flex items-end gap-3 relative">
+      <div className="p-3 md:p-5 pb-4 md:pb-5 bg-slate-900/90 border-t border-white/5 backdrop-blur-xl z-20 safe-area-bottom">
+          <div className="flex items-end gap-2 md:gap-3 relative">
               <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -1052,10 +1056,10 @@ const App: React.FC = () => {
               <button 
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isTransferring} 
-                  className={`p-3.5 rounded-2xl transition-all shrink-0 shadow-lg ${isTransferring ? 'opacity-30 cursor-not-allowed bg-slate-800' : 'hover:bg-slate-700 text-slate-400 hover:text-indigo-400 bg-slate-800 border border-slate-700 hover:border-indigo-500/50'}`}
+                  className={`p-3 md:p-3.5 rounded-2xl transition-all shrink-0 shadow-lg ${isTransferring ? 'opacity-30 cursor-not-allowed bg-slate-800' : 'hover:bg-slate-700 text-slate-400 hover:text-indigo-400 bg-slate-800 border border-slate-700 hover:border-indigo-500/50'}`}
                   title="发送文件"
               >
-                  <Paperclip size={22} />
+                  <Paperclip size={20} className="md:w-[22px] md:h-[22px]" />
               </button>
               
               <div className="flex-1 relative group">
@@ -1065,25 +1069,25 @@ const App: React.FC = () => {
                       onKeyDown={handleKeyPress}
                       placeholder={isTransferring ? "传输期间文本输入已锁定..." : "发送消息..."}
                       disabled={isTransferring}
-                      className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-2xl py-3.5 pl-5 pr-12 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none resize-none min-h-[52px] text-base shadow-inner transition-all"
+                      className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-2xl py-3 pl-4 pr-10 md:py-3.5 md:pl-5 md:pr-12 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none resize-none min-h-[48px] md:min-h-[52px] text-base shadow-inner transition-all"
                       rows={1}
-                      style={{ height: 'auto', minHeight: '52px' }}
+                      style={{ height: 'auto', minHeight: '48px' }}
                   />
                   {inputText && (
-                    <div className="absolute right-3 bottom-3 text-xs text-slate-500 font-mono">Enter</div>
+                    <div className="hidden md:block absolute right-3 bottom-3 text-xs text-slate-500 font-mono">Enter</div>
                   )}
               </div>
               
               <button 
                   onClick={sendMessage}
                   disabled={!inputText.trim() || isTransferring}
-                  className={`p-3.5 rounded-2xl transition-all shrink-0 shadow-lg flex items-center justify-center ${
+                  className={`p-3 md:p-3.5 rounded-2xl transition-all shrink-0 shadow-lg flex items-center justify-center ${
                       !inputText.trim() || isTransferring 
                       ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700' 
                       : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95 border-t border-white/10'
                   }`}
               >
-                  {isTransferring ? <Loader2 size={22} className="animate-spin" /> : <ArrowUpCircle size={24} />}
+                  {isTransferring ? <Loader2 size={20} className="animate-spin md:w-[22px] md:h-[22px]" /> : <ArrowUpCircle size={22} className="md:w-[24px] md:h-[24px]" />}
               </button>
           </div>
           {isTransferring && (
@@ -1108,7 +1112,7 @@ const App: React.FC = () => {
        <div className="fixed inset-0 tech-grid z-0 opacity-40"></div>
        
        {/* Connection Status Indicator (Global) */}
-       <div className="absolute top-6 right-6 z-50 flex gap-3 items-center">
+       <div className="absolute top-4 right-4 md:top-6 md:right-6 z-50 flex gap-3 items-center">
             {serverStatus === 'connecting' && <div className="bg-slate-900/80 border border-yellow-500/30 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg animate-pulse"><Loader2 size={12} className="animate-spin"/> 连接服务器...</div>}
             {serverStatus === 'disconnected' && appState !== AppState.HOME && (
                 <button onClick={reconnectPeer} className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg hover:bg-red-500/20 transition-all cursor-pointer group">
@@ -1129,7 +1133,7 @@ const App: React.FC = () => {
        {/* HELP MODAL */}
        {showHelp && (
            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowHelp(false)}>
-               <div className="bg-slate-900 border border-slate-700/80 p-8 rounded-3xl max-w-md w-full shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+               <div className="bg-slate-900 border border-slate-700/80 p-6 md:p-8 rounded-3xl max-w-md w-full shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
                    <div className="flex justify-between items-center mb-6">
                        <h3 className="text-xl font-bold flex items-center gap-2 text-white"><Sparkles className="text-yellow-400" size={20}/> 核心技术原理</h3>
@@ -1165,9 +1169,10 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-emerald-600/5 rounded-full blur-[120px] animate-float opacity-30" style={{animationDelay: '-3s'}}></div>
       </div>
 
-      <header className={`w-full text-center z-10 transition-all duration-700 ease-out ${appState === AppState.HOME ? 'py-16 md:py-24 opacity-100' : 'py-6 opacity-100'}`}>
+      {/* Hide Global Header on Mobile when in Chat to maximize space */}
+      <header className={`w-full text-center z-10 transition-all duration-700 ease-out ${appState === AppState.CHAT ? 'hidden md:flex py-6' : 'flex py-12 md:py-24'} ${appState === AppState.SETUP ? 'py-6' : ''}`}>
         {appState === AppState.HOME ? (
-            <div className="animate-in fade-in slide-in-from-top-8 duration-1000">
+            <div className="animate-in fade-in slide-in-from-top-8 duration-1000 px-4">
                 <div className="inline-flex items-center gap-2 mb-6 bg-slate-800/80 px-4 py-1.5 rounded-full border border-slate-700 backdrop-blur-md shadow-lg hover:border-indigo-500/30 transition-colors">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
@@ -1175,7 +1180,7 @@ const App: React.FC = () => {
                     </span>
                     <span className="text-slate-300 font-semibold tracking-wide text-xs uppercase">V 3.0 • Serverless Transfer</span>
                 </div>
-                <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-slate-500 mb-6 tracking-tighter drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-slate-500 mb-6 tracking-tighter drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
                     Nexus<span className="text-indigo-500 inline-block hover:scale-105 transition-transform cursor-default">Drop</span>
                 </h1>
                 <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto px-6 font-medium leading-relaxed">
@@ -1192,7 +1197,8 @@ const App: React.FC = () => {
         )}
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 z-10 pb-12">
+      {/* Main Content Area - Full screen on mobile chat */}
+      <main className={`flex-1 flex flex-col items-center w-full z-10 ${appState === AppState.CHAT ? 'justify-end md:justify-center p-0 md:px-4 md:pb-12' : 'justify-center px-4 pb-12'}`}>
         {appState === AppState.HOME && renderHome()}
         {appState === AppState.SETUP && renderSetup()}
         {appState === AppState.CHAT && renderChat()}
