@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [showQr, setShowQr] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [showLogs, setShowLogs] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -63,6 +64,7 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const connectionTimeoutRef = useRef<any>(null);
+  const heartbeatRef = useRef<any>(null);
 
   // Buffer Refs for Receiving
   const incomingFileIdRef = useRef<string | null>(null);
@@ -70,12 +72,13 @@ const App: React.FC = () => {
   const receivedSizeRef = useRef<number>(0);
   const currentIncomingMetaRef = useRef<FileMetadata | null>(null);
   const fileMetaRef = useRef<FileMetadata | null>(null);
+  const pendingFileTransferRef = useRef<File | null>(null);
 
   // --- LIFECYCLE & HELPERS ---
 
   const addLog = (msg: string) => {
     const time = new Date().toLocaleTimeString();
-    setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 50));
+    setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 100));
     console.log(`[AppLog] ${msg}`);
   };
 
@@ -90,11 +93,31 @@ const App: React.FC = () => {
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      stopHeartbeat();
       if (scannerRef.current) scannerRef.current.stop().catch(() => {});
       if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
       if (peerRef.current) peerRef.current.destroy();
     };
   }, []);
+
+  // --- HEARTBEAT ---
+  const startHeartbeat = () => {
+    stopHeartbeat();
+    heartbeatRef.current = setInterval(() => {
+      if (connRef.current && connRef.current.open) {
+        // Send a tiny packet to keep NAT mapping alive
+        try {
+            connRef.current.send({ type: 'PING' });
+        } catch (e) {
+            console.warn("Heartbeat failed", e);
+        }
+      }
+    }, 4000); // 4 seconds
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+  };
 
   // --- SCANNER LOGIC ---
   useEffect(() => {
@@ -154,16 +177,16 @@ const App: React.FC = () => {
   // --- PEER INITIALIZATION ---
   const initializePeer = useCallback((id?: string) => {
     if (peerRef.current && !peerRef.current.destroyed) {
-        addLog("检测到现有 Peer 连接，正在重用...");
+        addLog("检测到现有 Peer 连接，重用中...");
         if (peerRef.current.disconnected) {
-            addLog("连接已断开，尝试重连...");
+            addLog("连接已断开，尝试重连信令服务器...");
             peerRef.current.reconnect();
         }
         return peerRef.current;
     }
     
     if (typeof window.Peer === 'undefined') {
-      const msg = "核心组件(PeerJS)加载失败，请检查网络";
+      const msg = "PeerJS 组件加载失败，请检查网络";
       setErrorMsg(msg);
       addLog(msg);
       setAppState(AppState.ERROR);
@@ -172,48 +195,53 @@ const App: React.FC = () => {
 
     try {
       setServerStatus('connecting');
-      addLog("正在初始化 P2P 节点 (SSL/TLS)...");
+      addLog(`正在初始化 P2P 节点 (ID: ${id || '自动生成'})...`);
       
-      const peerOptions: any = {
+      // Auto-detect secure requirement (Localhost usually HTTP, Vercel is HTTPS)
+      const isSecure = window.location.protocol === 'https:';
+
+      const peer = new window.Peer(id, {
         debug: 1,
-        secure: true, // CRITICAL for Vercel/HTTPS
+        secure: isSecure, 
         config: {
+          // Optimized list for China & Global
           iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun.miwifi.com' },
-            { urls: 'stun:stun.qq.com:3478' }
+            { urls: 'stun:stun.miwifi.com' },          // China Xiaomi
+            { urls: 'stun:stun.qq.com:3478' },         // China Tencent
+            { urls: 'stun:stun.l.google.com:19302' },  // Global Google
+            { urls: 'stun:global.stun.twilio.com:3478'} // Backup
           ],
           iceCandidatePoolSize: 10,
         }
-      };
-
-      const peer = new window.Peer(id, peerOptions);
+      });
 
       peer.on('open', (myId: string) => {
-        addLog(`连接信令服务器成功。ID: ${myId}`);
+        addLog(`✅ 信令服务器连接成功。ID: ${myId}`);
         setPeerId(myId);
         setServerStatus('connected');
         setErrorMsg('');
       });
 
       peer.on('connection', (conn: any) => {
-        addLog(`收到来自 ${conn.peer} 的连接请求`);
+        addLog(`📩 收到来自 ${conn.peer} 的连接请求`);
         handleConnection(conn);
       });
 
       peer.on('disconnected', () => {
-        addLog("与信令服务器断开连接");
+        addLog("⚠️ 与信令服务器断开连接 (可能网络不稳定)");
         setServerStatus('disconnected');
+        // Auto-reconnect logic
+        // setTimeout(() => { if(peer && !peer.destroyed) peer.reconnect(); }, 2000);
       });
 
       peer.on('close', () => {
-        addLog("P2P 节点已关闭");
+        addLog("🚫 P2P 节点已关闭");
         setServerStatus('disconnected');
         setPeerId('');
       });
 
       peer.on('error', (err: any) => {
-        addLog(`P2P 错误: ${err.type} - ${err.message}`);
+        addLog(`❌ P2P 错误: ${err.type} - ${err.message}`);
         setServerStatus('disconnected');
         setIsConnecting(false); 
         
@@ -239,26 +267,36 @@ const App: React.FC = () => {
   const handleConnection = (conn: any) => {
     // Clean up existing connection if any
     if (connRef.current) {
+        addLog("关闭旧连接，接受新连接...");
         connRef.current.close();
     }
     
     connRef.current = conn;
-    addLog("正在建立数据通道...");
     
     conn.on('open', () => {
-      addLog(`数据通道已建立! 与 ${conn.peer} 连接成功`);
-      setConnectionStatus('Connected');
-      setIsConnecting(false); 
-      setErrorMsg('');
-      setAppState(AppState.CHAT);
-      
-      if (connectionTimeoutRef.current) {
-          clearTimeout(connectionTimeoutRef.current);
-          connectionTimeoutRef.current = null;
-      }
+      addLog(`✅ 数据通道已打开! 对方: ${conn.peer}`);
+      // Don't set 'Connected' immediately, verify with PING
+      conn.send({ type: 'PING' });
+      startHeartbeat();
     });
 
     conn.on('data', (data: any) => {
+      // PING/PONG Handling for connection verification
+      if (data && data.type === 'PING') {
+          conn.send({ type: 'PONG' });
+          return;
+      }
+      if (data && data.type === 'PONG') {
+          if (connectionStatus !== 'Connected') {
+              addLog(`🤝 连接握手确认成功！`);
+              setConnectionStatus('Connected');
+              setIsConnecting(false);
+              setErrorMsg('');
+              setAppState(AppState.CHAT);
+          }
+          return;
+      }
+
       handleIncomingData(data);
     });
 
@@ -266,6 +304,7 @@ const App: React.FC = () => {
       addLog("对方断开了连接");
       setConnectionStatus('Disconnected');
       setIsConnecting(false);
+      stopHeartbeat();
       addSystemMessage("对方已断开连接");
     });
     
@@ -280,21 +319,20 @@ const App: React.FC = () => {
   // --- DATA HANDLING ---
   
   const handleIncomingData = (data: any) => {
-    // Robust binary check for various data types PeerJS might emit
+    // Robust binary check
     const isBinary = 
         data instanceof ArrayBuffer || 
         data instanceof Uint8Array || 
         data instanceof Blob || 
         (data && data.constructor && data.constructor.name === 'ArrayBuffer') ||
         (data && data.buffer instanceof ArrayBuffer) ||
-        (data && data.type === 'Buffer'); // Some polyfills emit this
+        (data && data.type === 'Buffer'); 
     
     if (isBinary) {
       handleFileChunk(data);
       return;
     }
 
-    // Handle JSON messages
     if (data && data.type) {
       switch (data.type) {
         case 'TEXT':
@@ -310,11 +348,10 @@ const App: React.FC = () => {
 
         case 'FILE_START':
           const meta = data.payload as FileMetadata;
-          addLog(`开始接收文件: ${meta.name} (${meta.size} bytes)`);
+          addLog(`📥 接收文件请求: ${meta.name} (${(meta.size/1024).toFixed(1)} KB)`);
           
-          // Use Refs to avoid closure staleness
           currentIncomingMetaRef.current = meta;
-          fileMetaRef.current = meta; // Backup
+          fileMetaRef.current = meta; 
           incomingFileIdRef.current = meta.id;
           receivedChunksRef.current = [];
           receivedSizeRef.current = 0;
@@ -342,7 +379,7 @@ const App: React.FC = () => {
         
         case 'ACK_FILE_START':
            if (pendingFileTransferRef.current) {
-             addLog("对方确认，开始流式传输...");
+             addLog("📤 对方已确认，开始上传数据...");
              streamFile(pendingFileTransferRef.current);
              pendingFileTransferRef.current = null;
            }
@@ -353,22 +390,15 @@ const App: React.FC = () => {
 
   const handleFileChunk = (data: any) => {
     const meta = currentIncomingMetaRef.current || fileMetaRef.current;
-    if (!meta) {
-        // Only log this once to avoid spamming
-        if (Math.random() < 0.01) addLog("收到数据块但无文件元数据 (可能丢包或乱序)");
-        return;
-    }
+    if (!meta) return;
     
-    // Normalize data to Blob
     let chunk: Blob;
     if (data instanceof Blob) {
         chunk = data;
     } else if (data instanceof ArrayBuffer) {
         chunk = new Blob([data]);
-    } else if (data.buffer && data.buffer instanceof ArrayBuffer) {
-        chunk = new Blob([data]); // Handle Uint8Array
     } else {
-        chunk = new Blob([data]); // Fallback
+        chunk = new Blob([data]);
     }
 
     receivedChunksRef.current.push(chunk);
@@ -377,18 +407,15 @@ const App: React.FC = () => {
     const total = meta.size;
     const progress = Math.round((receivedSizeRef.current / total) * 100);
 
-    // Optimize state updates: only update UI every 5% or when done
     if (progress % 5 === 0 || progress >= 100) {
         setMessages(prev => prev.map(m => {
-            if (m.id === meta.id) {
-                return { ...m, progress: progress };
-            }
+            if (m.id === meta.id) return { ...m, progress: progress };
             return m;
         }));
     }
 
     if (receivedSizeRef.current >= total) {
-        addLog("文件接收完成，正在合成...");
+        addLog("✅ 文件接收完毕，合成中...");
         const blob = new Blob(receivedChunksRef.current, { type: meta.type });
         const url = URL.createObjectURL(blob);
         
@@ -399,7 +426,6 @@ const App: React.FC = () => {
             return m;
         }));
 
-        // Reset buffers
         currentIncomingMetaRef.current = null;
         fileMetaRef.current = null;
         incomingFileIdRef.current = null;
@@ -428,9 +454,8 @@ const App: React.FC = () => {
     setShowQr(false);
     setErrorMsg('');
     setLogs([]); 
-    addLog("创建房间中...");
+    addLog("正在创建房间...");
     
-    // Destroy previous peer to ensure clean slate
     if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
@@ -438,11 +463,10 @@ const App: React.FC = () => {
 
     try {
       const id = await generateConnectionPhrase();
-      addLog(`生成房间 ID: ${id}`);
+      addLog(`生成 ID: ${id}`);
       initializePeer(id);
     } catch (e: any) {
       addLog(`ID生成失败: ${e.message}`);
-      // Fallback
       const fallbackId = `drop-${Math.floor(Math.random()*10000)}`;
       initializePeer(fallbackId);
     } finally {
@@ -457,14 +481,12 @@ const App: React.FC = () => {
     setLogs([]);
     addLog("初始化接收端...");
     
-    // Destroy previous peer
     if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
     }
     
-    // Auto-generate a local ID for receiver immediately
-    // This allows them to come online instantly without waiting for user input
+    // Auto-generate local ID for receiver
     const localId = `recv-${Math.floor(Math.random() * 100000)}`;
     initializePeer(localId); 
   };
@@ -478,13 +500,13 @@ const App: React.FC = () => {
       }, 500);
   }
 
-  const connectToTarget = (overrideId?: string) => {
+  const connectToTarget = (overrideId?: string, isRetry = false) => {
     const rawId = typeof overrideId === 'string' ? overrideId : targetPeerId;
     const target = rawId?.trim().toLowerCase(); 
     
     if (!peerRef.current || !peerRef.current.id) {
         setErrorMsg("网络未就绪，请等待服务器连接变绿");
-        addLog("尝试连接但本地 Peer 未就绪");
+        addLog("错误: 本地 Peer 未就绪");
         return;
     }
     if (!target) {
@@ -498,44 +520,49 @@ const App: React.FC = () => {
     
     if (overrideId) setTargetPeerId(target);
 
-    setIsConnecting(true);
-    setErrorMsg('');
-    addLog(`发起连接 -> 目标: ${target}`);
+    if (!isRetry) {
+        setIsConnecting(true);
+        setErrorMsg('');
+        setRetryCount(0);
+    }
     
-    // Cleanup previous connection attempt
-    if (connRef.current) {
-        connRef.current.close();
-    }
-    if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current);
-    }
+    addLog(`🚀 发起连接 -> 目标: ${target} ${isRetry ? '(重试)' : ''}`);
+    
+    // Close old
+    if (connRef.current) connRef.current.close();
+    if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
 
-    // Set timeout
-    connectionTimeoutRef.current = setTimeout(() => {
-        if (isConnecting) {
-             const msg = "连接超时 (15s)。\n1. 请确认口令正确\n2. 确认对方在线且未关闭页面\n3. 尝试点击右上角重置网络";
-             setIsConnecting(false);
-             setErrorMsg(msg);
-             addLog("连接超时");
-             if (connRef.current) connRef.current.close();
-        }
-    }, 15000);
-
+    // Force strict reliable mode without serialization option (defaults to binary)
     try {
-        // IMPORTANT: Removed serialization: 'json' to allow raw binary transfer
-        // Default PeerJS behavior (BinaryPack) handles both JSON and Binary correctly
         const conn = peerRef.current.connect(target, { 
             reliable: true 
         });
         
-        if (!conn) {
-            throw new Error("连接创建失败(对象为空)");
-        }
+        if (!conn) throw new Error("连接对象创建失败");
         
         handleConnection(conn);
+
+        // Connection Timeout Logic
+        connectionTimeoutRef.current = setTimeout(() => {
+            if (isConnecting && connectionStatus !== 'Connected') {
+                 addLog("连接超时 (10s)");
+                 
+                 // Retry Logic
+                 if (retryCount < 2) {
+                     setRetryCount(prev => prev + 1);
+                     addLog(`自动重试连接 (${retryCount + 1}/3)...`);
+                     connectToTarget(target, true);
+                 } else {
+                     setIsConnecting(false);
+                     setErrorMsg("连接请求无响应。\n1. 请确保对方页面开着\n2. 对方没有在传输文件\n3. 尝试双方都刷新页面");
+                     if (connRef.current) connRef.current.close();
+                 }
+            }
+        }, 8000); // 8s timeout per attempt
+
     } catch (e: any) {
         console.error("Connect exception:", e);
-        setErrorMsg("连接请求异常: " + e.message);
+        setErrorMsg("连接异常: " + e.message);
         addLog("连接异常: " + e.message);
         setIsConnecting(false);
     }
@@ -563,8 +590,6 @@ const App: React.FC = () => {
         sendMessage();
     }
   };
-
-  const pendingFileTransferRef = useRef<File | null>(null);
 
   const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0 && connRef.current) {
@@ -601,7 +626,8 @@ const App: React.FC = () => {
   };
 
   const streamFile = (file: File) => {
-      const chunkSize = 16 * 1024; // 16KB chunks
+      // Small chunks for reliability
+      const chunkSize = 16 * 1024; 
       let offset = 0;
       
       const readSlice = (o: number) => {
@@ -622,7 +648,6 @@ const App: React.FC = () => {
                     
                     const progress = Math.min((offset / file.size) * 100, 100);
                     
-                    // Throttle UI updates
                     if (progress % 5 === 0 || progress >= 100) {
                         setMessages(prev => prev.map(m => {
                             if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
@@ -633,7 +658,7 @@ const App: React.FC = () => {
                     }
 
                     if (offset < file.size) {
-                        // Small delay to prevent flooding the P2P channel and UI thread
+                        // 5ms throttle to prevent buffer overflow
                         setTimeout(() => readSlice(offset), 5);
                     } else {
                         addLog("文件发送完成");
@@ -817,7 +842,7 @@ const App: React.FC = () => {
                   className="w-full !bg-emerald-600 hover:!bg-emerald-500 shadow-emerald-500/20"
                   icon={<ArrowRight size={18} />}
                 >
-                  {isConnecting ? '正在连接...' : '立即连接'}
+                  {isConnecting ? `正在连接 ${retryCount > 0 ? `(重试 ${retryCount})` : ''}...` : '立即连接'}
                 </Button>
              </>
            )}
