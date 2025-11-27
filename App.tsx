@@ -152,12 +152,16 @@ const App: React.FC = () => {
     }
 
     try {
+      // Config with more STUN servers for better connectivity in China
       const peer = new window.Peer(id, {
         debug: 1,
         config: {
           iceServers: [
+            { urls: 'stun:stun.miwifi.com' }, // Xiaomi
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
+            { urls: 'stun:global.stun.twilio.com:3478' },
+            { urls: 'stun:stun.qq.com:3478' }, // Tencent
+            { urls: 'stun:stun.voipbuster.com' }
           ]
         }
       });
@@ -172,9 +176,12 @@ const App: React.FC = () => {
 
       peer.on('error', (err: any) => {
         console.error('Peer error:', err);
-        setIsConnecting(false); // Stop loading if error occurs
+        // Only stop connecting spinner if we were actively trying to connect
+        setIsConnecting(false); 
         let msg = `连接错误: ${err.type}`;
         if (err.type === 'peer-unavailable') msg = "找不到该房间，请检查口令。";
+        else if (err.type === 'network') msg = "网络连接失败，请检查网络设置。";
+        else if (err.type === 'server-error') msg = "无法连接到信令服务器。";
         setErrorMsg(msg);
       });
 
@@ -347,7 +354,8 @@ const App: React.FC = () => {
   };
 
   const connectToTarget = (overrideId?: string) => {
-    const target = typeof overrideId === 'string' ? overrideId : targetPeerId;
+    const rawId = typeof overrideId === 'string' ? overrideId : targetPeerId;
+    const target = rawId?.trim().toLowerCase(); // Normalize input
     
     if (!peerRef.current) {
         setErrorMsg("网络初始化未完成");
@@ -357,24 +365,31 @@ const App: React.FC = () => {
         setErrorMsg("请输入房间口令");
         return;
     }
+    if (target === peerId) {
+        setErrorMsg("不能连接到自己");
+        return;
+    }
     
     // Update state if we used an override ID (from scanner)
-    if (overrideId) setTargetPeerId(overrideId);
+    if (overrideId) setTargetPeerId(target);
 
     setIsConnecting(true);
     setErrorMsg('');
     
-    // Set a timeout to prevent infinite loading state
+    // Explicit 15s Timeout Logic
     setTimeout(() => {
-        // If still connecting after 10s, likely failed or hung
-        // We can't easily check actual connection state here without refs, 
-        // but this is a safety fallback for UI
         if (connRef.current && !connRef.current.open) {
-           // Don't force close, just let user know
+           // If connection object exists but isn't open after 15s, it's a timeout
+           if (isConnecting) {
+             setIsConnecting(false);
+             setErrorMsg("连接超时。无法连接到房间，请检查对方是否在线。");
+             connRef.current.close();
+           }
         }
-    }, 10000);
+    }, 15000);
 
-    const conn = peerRef.current.connect(target);
+    // Reliable: true is important for file transfer chunks order
+    const conn = peerRef.current.connect(target, { reliable: true });
     handleConnection(conn);
   };
 
@@ -563,34 +578,43 @@ const App: React.FC = () => {
       ) : (
         // RECEIVER SETUP UI
         <div className="space-y-6">
-           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-2">房间口令</label>
-            <div className="flex gap-2">
-                <input 
-                type="text" 
-                value={targetPeerId}
-                onChange={(e) => {
-                    setTargetPeerId(e.target.value);
-                    if(errorMsg) setErrorMsg(''); // Clear error on type
-                }}
-                placeholder="例如：neon-cyber-wolf-123"
-                className={`flex-1 bg-slate-900 border ${errorMsg ? 'border-red-500' : 'border-slate-700'} text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono transition-colors`}
-                />
-                <button onClick={() => setIsScanning(true)} className="px-4 bg-slate-700 hover:bg-slate-600 rounded-xl text-white transition-colors" title="扫码">
-                <ScanLine size={20} />
-                </button>
-            </div>
-            {errorMsg && <p className="text-red-400 text-sm mt-2 flex items-center gap-1"><AlertTriangle size={14} /> {errorMsg}</p>}
-           </div>
-           <Button 
-            onClick={() => connectToTarget()} 
-            variant="primary" 
-            isLoading={isConnecting}
-            className="w-full !bg-emerald-600 hover:!bg-emerald-500"
-            icon={<ArrowRight size={18} />}
-           >
-            {isConnecting ? '正在连接...' : '连接'}
-           </Button>
+           {!peerId ? (
+             <div className="flex flex-col items-center justify-center py-10 space-y-4 text-slate-400">
+               <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+               <p className="animate-pulse">正在初始化网络...</p>
+             </div>
+           ) : (
+             <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">房间口令</label>
+                  <div className="flex gap-2">
+                      <input 
+                      type="text" 
+                      value={targetPeerId}
+                      onChange={(e) => {
+                          setTargetPeerId(e.target.value);
+                          if(errorMsg) setErrorMsg(''); // Clear error on type
+                      }}
+                      placeholder="例如：neon-cyber-wolf-123"
+                      className={`flex-1 bg-slate-900 border ${errorMsg ? 'border-red-500' : 'border-slate-700'} text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono transition-colors`}
+                      />
+                      <button onClick={() => setIsScanning(true)} className="px-4 bg-slate-700 hover:bg-slate-600 rounded-xl text-white transition-colors" title="扫码">
+                      <ScanLine size={20} />
+                      </button>
+                  </div>
+                  {errorMsg && <p className="text-red-400 text-sm mt-2 flex items-center gap-1"><AlertTriangle size={14} /> {errorMsg}</p>}
+                </div>
+                <Button 
+                  onClick={() => connectToTarget()} 
+                  variant="primary" 
+                  isLoading={isConnecting}
+                  className="w-full !bg-emerald-600 hover:!bg-emerald-500"
+                  icon={<ArrowRight size={18} />}
+                >
+                  {isConnecting ? '正在连接...' : '连接'}
+                </Button>
+             </>
+           )}
         </div>
       )}
 
