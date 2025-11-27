@@ -140,21 +140,14 @@ const App: React.FC = () => {
             // Configuration for better scanning
             const config = { 
               fps: 10, 
-              // Dynamically determine qrbox size based on actual camera resolution
-              // This prevents issues where the box is too small or large for the feed
-              qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                  return {
-                      width: Math.floor(minEdge * 0.7),
-                      height: Math.floor(minEdge * 0.7)
-                  };
-              },
-              // Important: Do NOT force aspectRatio. Let the library handle the camera native ratio.
-              // Forcing it often causes distortion which breaks recognition.
+              // REMOVED qrbox constraint. 
+              // Allowing the library to scan the full video frame is much more robust
+              // and fixes issues where CSS scaling (object-fit: cover) mismatches the logic.
               disableFlip: false,
               videoConstraints: {
                   facingMode: "environment",
-                  focusMode: "continuous" // Try to auto focus
+                  // Try to use auto focus if available
+                  focusMode: "continuous"
               }
             };
             
@@ -952,14 +945,7 @@ const App: React.FC = () => {
                 </button>
             </div>
             
-            {/* Bottom Instructions */}
-            <div className="absolute bottom-12 md:bottom-24 w-full z-20 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-4 duration-500 delay-300">
-                <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-2xl flex flex-col items-center text-center max-w-xs shadow-2xl">
-                    <ScanLine size={32} className="text-emerald-400 mb-2" />
-                    <h3 className="text-white font-bold text-lg">扫描二维码</h3>
-                    <p className="text-slate-400 text-sm mt-1">将发送方的二维码放入框内即可自动连接</p>
-                </div>
-            </div>
+            {/* Bottom Instructions REMOVED */}
         </div>
       )}
     </div>
