@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   QrCode,
   ScanLine,
-  X
+  X,
+  Camera
 } from 'lucide-react';
 
 // Main Component
@@ -85,30 +86,41 @@ const App: React.FC = () => {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
             
+            // Calculate best scan box size based on screen
+            const width = window.innerWidth;
+            const qrBoxSize = Math.min(width * 0.8, 300);
+
             await html5QrCode.start(
               { facingMode: "environment" }, 
               {
-                fps: 10,
-                qrbox: { width: 250, height: 250 }
+                fps: 20, // Higher FPS for smoother scanning
+                qrbox: { width: qrBoxSize, height: qrBoxSize },
+                aspectRatio: 1.0,
+                disableFlip: false,
               },
               (decodedText: string) => {
                 // Success callback
                 console.log(`Code matched = ${decodedText}`);
-                setTargetPeerId(decodedText);
-                stopScanner();
+                // Simple validation to avoid random QR codes
+                if (decodedText && decodedText.length > 3) {
+                  setTargetPeerId(decodedText);
+                  // Play a small beep or haptic feedback if possible
+                  if (navigator.vibrate) navigator.vibrate(50);
+                  stopScanner();
+                }
               },
               (errorMessage: string) => {
-                // parse error, ignore it.
+                // parse error, ignore it to avoid console spam
               }
             );
           } catch (err) {
             console.error("Error starting scanner", err);
-            setErrorMsg("无法启动摄像头，请确保已授予权限。");
+            setErrorMsg("无法启动摄像头，请确保已授予权限或使用HTTPS访问。");
             setIsScanning(false);
           }
         };
         startScanner();
-      }, 100);
+      }, 200); // Slightly longer delay for rendering
       return () => clearTimeout(timer);
     }
 
@@ -561,21 +573,54 @@ const App: React.FC = () => {
         </Button>
       </div>
 
-      {/* SCANNER MODAL OVERLAY */}
+      {/* FULL SCREEN SCANNER MODAL OVERLAY */}
       {isScanning && (
-        <div className="absolute inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center rounded-2xl overflow-hidden p-4">
-          <div className="w-full flex justify-between items-center mb-4">
-            <h3 className="font-bold text-white">扫描二维码</h3>
-            <button onClick={stopScanner} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700">
-              <X size={20} />
-            </button>
+        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
+          
+          {/* Top Bar */}
+          <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
+             <div className="flex items-center gap-2 text-white">
+                <Camera size={20} className="text-emerald-400" />
+                <span className="font-medium tracking-wide">扫描二维码</span>
+             </div>
+             <button 
+                onClick={stopScanner} 
+                className="bg-slate-800/50 hover:bg-slate-700 backdrop-blur-md text-white p-2 rounded-full transition-all border border-white/10"
+             >
+                <X size={24} />
+             </button>
           </div>
-          <div id="reader" className="w-full h-64 bg-black rounded-lg overflow-hidden relative">
-            {/* Library renders here */}
+
+          {/* Scanner Container (Full width) */}
+          <div id="reader" className="w-full h-full max-h-screen object-cover"></div>
+
+          {/* Custom Overlay UI */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            {/* Dark mask outside scan area */}
+            <div className="relative w-[70vw] h-[70vw] max-w-[300px] max-h-[300px]">
+              
+              {/* Corner Markers */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-xl"></div>
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-xl"></div>
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-500 rounded-bl-xl"></div>
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-500 rounded-br-xl"></div>
+              
+              {/* Scanning Laser Animation */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-400 shadow-[0_0_10px_#34d399] animate-[scan_2s_linear_infinite] opacity-80"></div>
+              <style>{`
+                @keyframes scan {
+                  0% { top: 0%; opacity: 0; }
+                  10% { opacity: 1; }
+                  90% { opacity: 1; }
+                  100% { top: 100%; opacity: 0; }
+                }
+              `}</style>
+            </div>
+            
+            <p className="absolute bottom-20 text-white/80 font-medium text-sm bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm">
+              请将摄像头对准发送方的二维码
+            </p>
           </div>
-          <p className="text-sm text-slate-400 mt-4 text-center">
-            请将发送方的二维码置于框内
-          </p>
         </div>
       )}
     </div>
