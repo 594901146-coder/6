@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { AppState, FileMetadata, PeerMessage } from './types';
+import { AppState, FileMetadata, ChatMessage } from './types';
 import { generateConnectionPhrase } from './services/geminiService';
 import { Button } from './components/Button';
 import { ProgressBar } from './components/ProgressBar';
@@ -7,8 +7,6 @@ import {
   Send, 
   Download, 
   Wifi, 
-  CheckCircle, 
-  XCircle, 
   Loader2, 
   Copy, 
   FileIcon, 
@@ -19,41 +17,62 @@ import {
   QrCode,
   ScanLine,
   X,
-  Camera
+  Camera,
+  Paperclip,
+  ArrowUpCircle,
+  MessageSquare
 } from 'lucide-react';
 
 // Main Component
 const App: React.FC = () => {
-  // State
+  // --- STATE ---
   const [appState, setAppState] = useState<AppState>(AppState.HOME);
+  
+  // Connection Setup
+  const [role, setRole] = useState<'sender' | 'receiver' | null>(null); // 'sender' creates room, 'receiver' joins
   const [peerId, setPeerId] = useState<string>('');
   const [targetPeerId, setTargetPeerId] = useState<string>('');
   const [connectionStatus, setConnectionStatus] = useState<string>('Disconnected');
-  const [files, setFiles] = useState<File[]>([]);
-  const [currentFileMeta, setCurrentFileMeta] = useState<FileMetadata | null>(null);
-  const [transferProgress, setTransferProgress] = useState<number>(0);
-  const [receivedFileUrl, setReceivedFileUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  
+  // UX State
   const [isGeneratingId, setIsGeneratingId] = useState(false);
   const [isPeerReady, setIsPeerReady] = useState(true);
   const [showQr, setShowQr] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  
+  // Chat & Transfer State
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  
+  // Transfer Control (We assume single file transfer at a time for simplicity in this version)
+  const [isTransferring, setIsTransferring] = useState(false);
 
-  // Refs for persistent data access inside callbacks (avoids stale closures)
+  // --- REFS ---
   const peerRef = useRef<any>(null);
   const connRef = useRef<any>(null);
+  const scannerRef = useRef<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Buffer Refs for Receiving
+  const incomingFileIdRef = useRef<string | null>(null);
   const receivedChunksRef = useRef<BlobPart[]>([]);
   const receivedSizeRef = useRef<number>(0);
-  const scannerRef = useRef<any>(null);
-  
-  // Critical Refs for transfer logic
-  const fileMetaRef = useRef<FileMetadata | null>(null);
-  const filesRef = useRef<File[]>([]);
+  const currentIncomingMetaRef = useRef<FileMetadata | null>(null);
 
-  // Check if PeerJS is loaded
+  // Helper to scroll chat to bottom
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Check PeerJS Load
   useEffect(() => {
     if (typeof window.Peer === 'undefined') {
-      console.warn("PeerJS not loaded yet, checking...");
       const checkInterval = setInterval(() => {
         if (typeof window.Peer !== 'undefined') {
           setIsPeerReady(true);
@@ -62,10 +81,7 @@ const App: React.FC = () => {
           setIsPeerReady(false);
         }
       }, 1000);
-      
-      // Timeout after 5s
       setTimeout(() => clearInterval(checkInterval), 5000);
-      
       return () => clearInterval(checkInterval);
     }
   }, []);
@@ -73,60 +89,39 @@ const App: React.FC = () => {
   // --- SCANNER LOGIC ---
   useEffect(() => {
     if (isScanning && !scannerRef.current) {
-      // Delay slightly to ensure DOM element exists
       const timer = setTimeout(() => {
         const startScanner = async () => {
           if (typeof window.Html5Qrcode === 'undefined') {
-            setErrorMsg("扫码库未加载，请检查网络。");
+            setErrorMsg("扫码库未加载");
             setIsScanning(false);
             return;
           }
-
           try {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
-            
-            // Calculate best scan box size based on screen
             const width = window.innerWidth;
             const qrBoxSize = Math.min(width * 0.8, 300);
-
             await html5QrCode.start(
               { facingMode: "environment" }, 
-              {
-                fps: 20, // Higher FPS for smoother scanning
-                qrbox: { width: qrBoxSize, height: qrBoxSize },
-                aspectRatio: 1.0,
-                disableFlip: false,
-              },
+              { fps: 20, qrbox: { width: qrBoxSize, height: qrBoxSize }, aspectRatio: 1.0 },
               (decodedText: string) => {
-                // Success callback
-                console.log(`Code matched = ${decodedText}`);
-                // Simple validation to avoid random QR codes
                 if (decodedText && decodedText.length > 3) {
                   setTargetPeerId(decodedText);
-                  // Play a small beep or haptic feedback if possible
                   if (navigator.vibrate) navigator.vibrate(50);
                   stopScanner();
                 }
               },
-              (errorMessage: string) => {
-                // parse error, ignore it to avoid console spam
-              }
+              () => {}
             );
           } catch (err) {
-            console.error("Error starting scanner", err);
-            setErrorMsg("无法启动摄像头，请确保已授予权限或使用HTTPS访问。");
+            setErrorMsg("无法启动摄像头");
             setIsScanning(false);
           }
         };
         startScanner();
-      }, 200); // Slightly longer delay for rendering
+      }, 200);
       return () => clearTimeout(timer);
     }
-
-    return () => {
-      // Cleanup happens in stopScanner mainly, but safety check here
-    };
   }, [isScanning]);
 
   const stopScanner = async () => {
@@ -134,26 +129,22 @@ const App: React.FC = () => {
       try {
         await scannerRef.current.stop();
         scannerRef.current.clear();
-      } catch (e) {
-        console.error("Failed to stop scanner", e);
-      }
+      } catch (e) {}
       scannerRef.current = null;
     }
     setIsScanning(false);
   };
 
-  // --- HELPER: Initialize Peer ---
+  // --- PEER INITIALIZATION ---
   const initializePeer = useCallback((id?: string) => {
     if (peerRef.current) return peerRef.current;
-
     if (typeof window.Peer === 'undefined') {
-      setErrorMsg("PeerJS 库未能加载，请检查网络或刷新页面。");
+      setErrorMsg("PeerJS 未加载");
       setAppState(AppState.ERROR);
       return null;
     }
 
     try {
-      // Use Google's public STUN servers to improve connection success rate over the internet
       const peer = new window.Peer(id, {
         debug: 1,
         config: {
@@ -165,561 +156,608 @@ const App: React.FC = () => {
       });
 
       peer.on('open', (id: string) => {
-        console.log('My peer ID is: ' + id);
         setPeerId(id);
       });
 
       peer.on('connection', (conn: any) => {
-        console.log('Incoming connection from:', conn.peer);
         handleConnection(conn);
       });
 
       peer.on('error', (err: any) => {
         console.error('Peer error:', err);
-        // Friendly error messages
         let msg = `连接错误: ${err.type}`;
-        if (err.type === 'peer-unavailable') msg = "找不到该房间，请检查口令是否正确。";
-        if (err.type === 'disconnected') msg = "与服务器的连接已断开。";
-        if (err.type === 'network') msg = "网络连接不稳定。";
-        if (err.type === 'unavailable-id') msg = "ID 生成冲突，请重试。";
-        
+        if (err.type === 'peer-unavailable') msg = "找不到该房间，请检查口令。";
         setErrorMsg(msg);
-        setAppState(AppState.ERROR);
       });
 
       peerRef.current = peer;
       return peer;
     } catch (e: any) {
-      console.error("Peer init failed:", e);
-      setErrorMsg("初始化 P2P 连接失败: " + e.message);
+      setErrorMsg("初始化失败: " + e.message);
       setAppState(AppState.ERROR);
       return null;
     }
   }, []);
 
-  // --- HELPER: Handle Connection (Both sides) ---
   const handleConnection = (conn: any) => {
+    // If we already have a connection, close it? Or allow multi-peer? 
+    // For this simple app, we replace.
+    if (connRef.current) {
+        connRef.current.close();
+    }
+    
     connRef.current = conn;
     
     conn.on('open', () => {
-      console.log('Connected to:', conn.peer);
       setConnectionStatus('Connected');
-      // If we are sender, we might want to auto-navigate or just wait for file pick
-      // If we are receiver, we wait for data
+      setAppState(AppState.CHAT);
+      // Send a system message or just ready state
     });
 
     conn.on('data', (data: any) => {
-      handleData(data);
+      handleIncomingData(data);
     });
 
     conn.on('close', () => {
       setConnectionStatus('Disconnected');
-      // Optional: Reset state or show alert
+      // Maybe show a system message in chat
+      addSystemMessage("对方已断开连接");
     });
     
     conn.on('error', (err: any) => {
-        console.error("Connection error:", err);
-        setConnectionStatus('Disconnected');
+      console.error("Conn error", err);
+      setConnectionStatus('Disconnected');
     });
   };
 
-  // --- HELPER: Handle Incoming Data ---
-  const handleData = (data: any) => {
-    // 1. Metadata packet
-    if (data && data.type === 'METADATA') {
-      const meta = data.payload as FileMetadata;
-      setCurrentFileMeta(meta);
-      fileMetaRef.current = meta; // Sync ref for immediate access
-      
-      receivedChunksRef.current = [];
-      receivedSizeRef.current = 0;
-      setAppState(AppState.TRANSFERRING);
-      setTransferProgress(0);
-      
-      // Auto-ack to start transfer
-      if (connRef.current) {
-        connRef.current.send({ type: 'ACK' });
-      }
-    } 
-    // 2. Acknowledgement
-    else if (data && data.type === 'ACK') {
-      startFileTransfer();
+  // --- DATA HANDLING (Protocol) ---
+
+  const handleIncomingData = (data: any) => {
+    // 1. Check for Binary (File Chunk)
+    const isBinary = data instanceof ArrayBuffer || data instanceof Uint8Array || data instanceof Blob || (data && data.buffer instanceof ArrayBuffer);
+    
+    if (isBinary) {
+      handleFileChunk(data);
+      return;
     }
-    // 3. File Chunk (Binary)
-    else {
-      // Robust binary check: PeerJS can send ArrayBuffer, Blob, or Uint8Array
-      const isBinary = data instanceof ArrayBuffer || data instanceof Uint8Array || data instanceof Blob || (data && data.buffer instanceof ArrayBuffer);
-      
-      if (isBinary) {
-        // Use Ref because closure 'currentFileMeta' might be stale
-        if (!fileMetaRef.current) {
-           console.warn("Received binary chunk but metadata is missing.");
-           return;
-        }
 
-        const chunk = data instanceof Blob ? data : new Blob([data]);
-        receivedChunksRef.current.push(chunk);
-        receivedSizeRef.current += chunk.size;
+    // 2. Check for JSON Commands
+    if (data && data.type) {
+      switch (data.type) {
+        case 'TEXT':
+          const newMsg: ChatMessage = {
+            id: Date.now().toString() + Math.random(),
+            sender: 'peer',
+            type: 'text',
+            content: data.payload,
+            timestamp: Date.now()
+          };
+          setMessages(prev => [...prev, newMsg]);
+          break;
 
-        // Calculate progress
-        const progress = (receivedSizeRef.current / fileMetaRef.current.size) * 100;
-        setTransferProgress(progress);
+        case 'FILE_START':
+          const meta = data.payload as FileMetadata;
+          currentIncomingMetaRef.current = meta;
+          incomingFileIdRef.current = meta.id;
+          receivedChunksRef.current = [];
+          receivedSizeRef.current = 0;
+          setIsTransferring(true);
 
-        if (receivedSizeRef.current >= fileMetaRef.current.size) {
-          finishReception();
-        }
+          // Add a placeholder message for the incoming file
+          setMessages(prev => [...prev, {
+            id: meta.id, // Use same ID to update progress
+            sender: 'peer',
+            type: 'file',
+            fileMeta: meta,
+            progress: 0,
+            status: 'transferring',
+            timestamp: Date.now()
+          }]);
+          
+          // Send ACK to start streaming
+          connRef.current.send({ type: 'ACK_FILE_START' });
+          break;
+        
+        case 'ACK_FILE_START':
+           // Peer is ready to receive stream
+           if (pendingFileTransferRef.current) {
+             streamFile(pendingFileTransferRef.current);
+             pendingFileTransferRef.current = null;
+           }
+           break;
       }
     }
   };
 
-  // --- SENDER ACTIONS ---
+  const handleFileChunk = (data: any) => {
+    if (!currentIncomingMetaRef.current) return;
+    
+    const chunk = data instanceof Blob ? data : new Blob([data]);
+    receivedChunksRef.current.push(chunk);
+    receivedSizeRef.current += chunk.size;
 
-  const startAsSender = async () => {
+    const total = currentIncomingMetaRef.current.size;
+    const progress = Math.round((receivedSizeRef.current / total) * 100);
+
+    // Update UI Progress throttling
+    // For performance, you might want to throttle this update, but React is fast enough for 64KB chunks usually
+    setMessages(prev => prev.map(m => {
+        if (m.id === currentIncomingMetaRef.current?.id) {
+            return { ...m, progress: progress };
+        }
+        return m;
+    }));
+
+    if (receivedSizeRef.current >= total) {
+        // File Complete
+        const blob = new Blob(receivedChunksRef.current, { type: currentIncomingMetaRef.current.type });
+        const url = URL.createObjectURL(blob);
+        
+        setMessages(prev => prev.map(m => {
+            if (m.id === currentIncomingMetaRef.current?.id) {
+                return { ...m, progress: 100, status: 'completed', fileUrl: url };
+            }
+            return m;
+        }));
+
+        // Reset buffer
+        currentIncomingMetaRef.current = null;
+        incomingFileIdRef.current = null;
+        receivedChunksRef.current = [];
+        receivedSizeRef.current = 0;
+        setIsTransferring(false);
+    }
+  };
+
+  const addSystemMessage = (text: string) => {
+      setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          sender: 'peer', // loosely use peer or create 'system'
+          type: 'text',
+          content: `[系统消息] ${text}`,
+          timestamp: Date.now()
+      }]);
+  };
+
+  // --- ACTIONS ---
+
+  const startRoom = async () => {
     setIsGeneratingId(true);
+    setRole('sender');
+    setAppState(AppState.SETUP);
     setShowQr(false);
     try {
       const id = await generateConnectionPhrase();
       initializePeer(id);
-      setAppState(AppState.SENDER_LOBBY);
     } catch (e: any) {
-      console.error(e);
-      setErrorMsg(`初始化发送模式失败: ${e.message}`);
-      setAppState(AppState.ERROR);
+      setErrorMsg(e.message);
     } finally {
       setIsGeneratingId(false);
     }
   };
 
-  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFiles = Array.from(e.target.files);
-      setFiles(selectedFiles);
-      filesRef.current = selectedFiles; // Keep ref in sync
-    }
+  const joinRoom = () => {
+    setRole('receiver');
+    setAppState(AppState.SETUP);
+    initializePeer(); // Random ID for receiver
   };
 
-  const initiateTransfer = () => {
-    // Use ref to be safe, though button click usually has fresh state
-    if (!connRef.current || filesRef.current.length === 0) return;
-    const file = filesRef.current[0];
-    
-    const meta: FileMetadata = {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    };
-
-    // Send metadata first
-    connRef.current.send({ type: 'METADATA', payload: meta });
-    setAppState(AppState.TRANSFERRING);
-  };
-
-  const startFileTransfer = () => {
-    // Must use ref here because this function is called from handleData (stale closure)
-    const file = filesRef.current[0];
-    if (!file) {
-      console.error("No file found to transfer");
-      return;
-    }
-
-    const chunk_size = 64 * 1024; // 64KB chunks
-    let offset = 0;
-
-    // Simple chunk reader
-    const readSlice = (o: number) => {
-      const slice = file.slice(offset, o + chunk_size);
-      const reader = new FileReader();
-      
-      reader.onload = (evt) => {
-        if (!evt.target || !connRef.current) return;
-        if (evt.target.readyState === FileReader.DONE) {
-          connRef.current.send(evt.target.result); // Send ArrayBuffer
-          offset += chunk_size;
-          
-          const progress = Math.min((offset / file.size) * 100, 100);
-          setTransferProgress(progress);
-
-          if (offset < file.size) {
-            // Keep reading
-             // Small timeout to not freeze UI/Stack
-            setTimeout(() => readSlice(offset), 0);
-          } else {
-             setAppState(AppState.COMPLETED);
-          }
-        }
-      };
-      
-      reader.readAsArrayBuffer(slice);
-    };
-
-    readSlice(0);
-  };
-
-  // --- RECEIVER ACTIONS ---
-
-  const startAsReceiver = () => {
-    // Receiver doesn't need a specific ID, let PeerJS generate one
-    initializePeer();
-    setAppState(AppState.RECEIVER_LOBBY);
-  };
-
-  const connectToPeer = () => {
+  const connectToTarget = () => {
     if (!peerRef.current || !targetPeerId) return;
     const conn = peerRef.current.connect(targetPeerId);
     handleConnection(conn);
   };
 
-  const finishReception = () => {
-    if (!fileMetaRef.current) return;
-    const blob = new Blob(receivedChunksRef.current, { type: fileMetaRef.current.type });
-    const url = URL.createObjectURL(blob);
-    setReceivedFileUrl(url);
-    setAppState(AppState.COMPLETED);
+  const sendMessage = () => {
+    if (!inputText.trim() || !connRef.current) return;
+    
+    connRef.current.send({ type: 'TEXT', payload: inputText });
+    
+    setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        sender: 'me',
+        type: 'text',
+        content: inputText,
+        timestamp: Date.now()
+    }]);
+    
+    setInputText('');
   };
 
-  const resetApp = () => {
-     // Clean up
-     if (peerRef.current) peerRef.current.destroy();
-     if (scannerRef.current) stopScanner();
-     
-     peerRef.current = null;
-     connRef.current = null;
-     scannerRef.current = null;
-     
-     // Reset Refs
-     fileMetaRef.current = null;
-     filesRef.current = [];
-     receivedChunksRef.current = [];
-     receivedSizeRef.current = 0;
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+  };
 
-     // Reset State
-     setAppState(AppState.HOME);
-     setFiles([]);
-     setReceivedFileUrl(null);
-     setTransferProgress(0);
-     setConnectionStatus('Disconnected');
-     setTargetPeerId('');
-     setErrorMsg('');
-     setShowQr(false);
-     setIsScanning(false);
-     setCurrentFileMeta(null);
+  // File Sending Logic
+  const pendingFileTransferRef = useRef<File | null>(null);
+
+  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0 && connRef.current) {
+        const file = e.target.files[0];
+        
+        // Don't start another if one is going
+        if (isTransferring) {
+            alert("请等待当前文件传输完成");
+            return;
+        }
+
+        const transferId = Date.now().toString();
+        const meta: FileMetadata = {
+            id: transferId,
+            name: file.name,
+            size: file.size,
+            type: file.type
+        };
+
+        // 1. Show in UI immediately
+        setMessages(prev => [...prev, {
+            id: transferId,
+            sender: 'me',
+            type: 'file',
+            fileMeta: meta,
+            progress: 0,
+            status: 'transferring',
+            timestamp: Date.now()
+        }]);
+
+        // 2. Send Metadata to Peer
+        connRef.current.send({ type: 'FILE_START', payload: meta });
+        
+        // 3. Wait for ACK to stream (Handled in handleIncomingData)
+        pendingFileTransferRef.current = file;
+        setIsTransferring(true);
+        
+        // Reset input
+        e.target.value = '';
+    }
+  };
+
+  const streamFile = (file: File) => {
+      const chunkSize = 64 * 1024; // 64KB
+      let offset = 0;
+      
+      const readSlice = (o: number) => {
+          const slice = file.slice(o, o + chunkSize);
+          const reader = new FileReader();
+          
+          reader.onload = (evt) => {
+              if (evt.target?.readyState === FileReader.DONE && connRef.current) {
+                  connRef.current.send(evt.target.result); // Binary
+                  offset += chunkSize;
+                  
+                  // Update Local UI Progress
+                  const progress = Math.min((offset / file.size) * 100, 100);
+                  // Optional: Throttle local updates if needed
+                  setMessages(prev => prev.map(m => {
+                      if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
+                           return { ...m, progress: progress };
+                      }
+                      return m;
+                  }));
+
+                  if (offset < file.size) {
+                      // Allow UI thread to breathe
+                      setTimeout(() => readSlice(offset), 0);
+                  } else {
+                      setIsTransferring(false);
+                      setMessages(prev => prev.map(m => {
+                        if (m.fileMeta?.name === file.name && m.sender === 'me') {
+                             return { ...m, progress: 100, status: 'completed' };
+                        }
+                        return m;
+                      }));
+                  }
+              }
+          };
+          reader.readAsArrayBuffer(slice);
+      };
+      readSlice(0);
+  };
+
+  const exitChat = () => {
+     if(connRef.current) connRef.current.close();
+     if(peerRef.current) peerRef.current.destroy();
+     window.location.reload();
   };
 
   // --- RENDERERS ---
 
   const renderHome = () => (
-    <div className="flex flex-col md:flex-row gap-8 max-w-4xl w-full">
-      {!isPeerReady && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-yellow-600/20 border border-yellow-500/50 text-yellow-200 px-4 py-2 rounded-lg flex items-center gap-2">
-           <AlertTriangle size={18} />
-           <span>正在加载核心组件，请稍候... (如果长时间未加载，请刷新)</span>
-        </div>
-      )}
-      
+    <div className="flex flex-col md:flex-row gap-8 max-w-4xl w-full animate-in fade-in zoom-in duration-500">
       <div 
-        onClick={isPeerReady ? startAsSender : undefined}
-        className={`flex-1 group hover:scale-[1.02] transition-transform duration-300 ${!isPeerReady ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        onClick={isPeerReady ? startRoom : undefined}
+        className={`flex-1 group hover:scale-[1.02] transition-transform duration-300 ${!isPeerReady ? 'opacity-50' : 'cursor-pointer'}`}
       >
-        <div className="glass-panel h-64 md:h-80 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-indigo-500 bg-gradient-to-b from-slate-800 to-slate-900">
+        <div className="glass-panel h-64 md:h-80 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-indigo-500 bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl shadow-indigo-500/10">
           <div className="w-20 h-20 rounded-full bg-indigo-500/20 flex items-center justify-center mb-6 group-hover:bg-indigo-500/30 transition-colors">
-            {isGeneratingId ? <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" /> : <Send className="w-10 h-10 text-indigo-400" />}
+            {isGeneratingId ? <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" /> : <Wifi className="w-10 h-10 text-indigo-400" />}
           </div>
-          <h2 className="text-2xl font-bold mb-2">我要发送</h2>
-          <p className="text-slate-400 text-center">创建安全房间，点对点直传文件。</p>
+          <h2 className="text-2xl font-bold mb-2">创建房间</h2>
+          <p className="text-slate-400 text-center">生成一个安全口令，等待对方连接。</p>
         </div>
       </div>
 
       <div 
-        onClick={isPeerReady ? startAsReceiver : undefined}
-        className={`flex-1 group hover:scale-[1.02] transition-transform duration-300 ${!isPeerReady ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        onClick={isPeerReady ? joinRoom : undefined}
+        className={`flex-1 group hover:scale-[1.02] transition-transform duration-300 ${!isPeerReady ? 'opacity-50' : 'cursor-pointer'}`}
       >
-        <div className="glass-panel h-64 md:h-80 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-emerald-500 bg-gradient-to-b from-slate-800 to-slate-900">
+        <div className="glass-panel h-64 md:h-80 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-emerald-500 bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl shadow-emerald-500/10">
           <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6 group-hover:bg-emerald-500/30 transition-colors">
             <Download className="w-10 h-10 text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">我要接收</h2>
-          <p className="text-slate-400 text-center">输入口令加入房间，秒速下载。</p>
+          <h2 className="text-2xl font-bold mb-2">加入房间</h2>
+          <p className="text-slate-400 text-center">输入口令或扫描二维码加入。</p>
         </div>
       </div>
     </div>
   );
 
-  const renderSenderLobby = () => (
-    <div className="glass-panel p-8 rounded-2xl max-w-lg w-full">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <Wifi className="text-indigo-400" /> 您的房间
-      </h2>
-      
-      <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 mb-8 text-center transition-all duration-300">
-        <p className="text-sm text-slate-400 mb-2 uppercase tracking-wider font-semibold">分享此口令</p>
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <span className="text-3xl font-mono font-bold text-white tracking-tight break-all">{peerId || '...'}</span>
-          {peerId && (
-            <div className="flex gap-1 shrink-0">
-              <button 
-                onClick={() => navigator.clipboard.writeText(peerId)}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
-                title="复制到剪贴板"
-              >
-                <Copy size={20} />
-              </button>
-              <button 
-                onClick={() => setShowQr(!showQr)}
-                className={`p-2 rounded-lg transition-colors ${showQr ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700 text-slate-400 hover:text-white'}`}
-                title="显示二维码"
-              >
-                <QrCode size={20} />
-              </button>
-            </div>
-          )}
-        </div>
-        
-        {/* QR Code Section */}
-        {showQr && peerId && (
-          <div className="mt-4 flex flex-col items-center animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="bg-white p-3 rounded-xl shadow-lg shadow-black/20">
-              <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} 
-                alt="Room QR Code" 
-                className="w-40 h-40"
-                loading="lazy"
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-2">扫描二维码获取房间口令</p>
-          </div>
-        )}
+  const renderSetup = () => (
+    <div className="glass-panel p-8 rounded-2xl max-w-lg w-full animate-in slide-in-from-bottom-4 duration-300">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          {role === 'sender' ? <Wifi className="text-indigo-400" /> : <Download className="text-emerald-400" />}
+          {role === 'sender' ? '等待连接' : '连接房间'}
+        </h2>
+        <button onClick={exitChat} className="text-slate-500 hover:text-white transition-colors">
+            <X size={24} />
+        </button>
       </div>
 
-      <div className="space-y-6">
-        <div className={`p-4 rounded-xl border ${connectionStatus === 'Connected' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-800/50 border-slate-700'} flex items-center justify-between`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${connectionStatus === 'Connected' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-500'}`}></div>
-            <span className="font-medium text-slate-200">
-              {connectionStatus === 'Connected' ? '设备已连接' : '等待连接...'}
-            </span>
-          </div>
-          {connectionStatus === 'Connected' && <ShieldCheck className="text-emerald-500" size={20} />}
-        </div>
-
-        <div className="border-2 border-dashed border-slate-700 hover:border-indigo-500/50 rounded-xl p-8 transition-colors text-center relative">
-          <input 
-            type="file" 
-            onChange={onFileSelect} 
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          />
-          {files.length > 0 ? (
-            <div className="flex flex-col items-center">
-              <FileIcon className="w-12 h-12 text-indigo-400 mb-2" />
-              <p className="font-medium text-white truncate max-w-full px-4">{files[0].name}</p>
-              <p className="text-sm text-slate-400">{(files[0].size / (1024 * 1024)).toFixed(2)} MB</p>
+      {role === 'sender' ? (
+        // SENDER SETUP UI
+        <div className="space-y-6">
+           <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 text-center">
+            <p className="text-sm text-slate-400 mb-2 uppercase tracking-wider font-semibold">房间口令</p>
+            <div className="flex items-center justify-center gap-3 mb-2">
+                <span className="text-3xl font-mono font-bold text-white tracking-tight break-all">{peerId || '生成中...'}</span>
+                {peerId && (
+                <div className="flex gap-1 shrink-0">
+                    <button onClick={() => navigator.clipboard.writeText(peerId)} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white" title="复制">
+                        <Copy size={20} />
+                    </button>
+                    <button onClick={() => setShowQr(!showQr)} className={`p-2 rounded-lg ${showQr ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700 text-slate-400 hover:text-white'}`} title="二维码">
+                        <QrCode size={20} />
+                    </button>
+                </div>
+                )}
             </div>
-          ) : (
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3">
-                <FileIcon className="w-6 h-6 text-slate-400" />
-              </div>
-              <p className="text-slate-300 font-medium">点击选择文件</p>
-              <p className="text-slate-500 text-sm">不限格式，不限大小</p>
+            {showQr && peerId && (
+                <div className="mt-4 flex flex-col items-center animate-in fade-in duration-300">
+                <div className="bg-white p-2 rounded-xl">
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-32 h-32" />
+                </div>
+                </div>
+            )}
+           </div>
+           <div className="flex items-center justify-center gap-3 py-4 text-slate-400">
+               <Loader2 className="animate-spin text-indigo-500" />
+               等待对方加入...
+           </div>
+        </div>
+      ) : (
+        // RECEIVER SETUP UI
+        <div className="space-y-6">
+           <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2">房间口令</label>
+            <div className="flex gap-2">
+                <input 
+                type="text" 
+                value={targetPeerId}
+                onChange={(e) => setTargetPeerId(e.target.value)}
+                placeholder="例如：neon-cyber-wolf-123"
+                className="flex-1 bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono"
+                />
+                <button onClick={() => setIsScanning(true)} className="px-4 bg-slate-700 hover:bg-slate-600 rounded-xl text-white transition-colors" title="扫码">
+                <ScanLine size={20} />
+                </button>
             </div>
-          )}
+           </div>
+           <Button 
+            onClick={connectToTarget} 
+            variant="primary" 
+            className="w-full !bg-emerald-600 hover:!bg-emerald-500"
+            icon={<ArrowRight size={18} />}
+           >
+            连接
+           </Button>
         </div>
+      )}
 
-        <Button 
-          onClick={initiateTransfer} 
-          disabled={connectionStatus !== 'Connected' || files.length === 0}
-          className="w-full"
-          icon={<Zap size={18} />}
-        >
-          开始传输
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderReceiverLobby = () => (
-    <div className="glass-panel p-8 rounded-2xl max-w-lg w-full relative">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <Download className="text-emerald-400" /> 加入房间
-      </h2>
-
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-400 mb-2">输入房间口令</label>
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              value={targetPeerId}
-              onChange={(e) => setTargetPeerId(e.target.value)}
-              placeholder="例如：cosmic-red-fox-123"
-              className="flex-1 bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none font-mono"
-            />
-            <button 
-              onClick={() => setIsScanning(true)}
-              className="px-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl text-white transition-colors flex items-center justify-center"
-              title="扫码加入"
-            >
-              <ScanLine size={20} />
-            </button>
-          </div>
-        </div>
-
-        <Button 
-          onClick={connectToPeer} 
-          variant="primary" 
-          className="w-full !bg-emerald-600 hover:!bg-emerald-500 !shadow-emerald-500/20"
-          icon={<ArrowRight size={18} />}
-        >
-          连接
-        </Button>
-      </div>
-
-      {/* FULL SCREEN SCANNER MODAL OVERLAY */}
+      {/* QR SCANNER OVERLAY */}
       {isScanning && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
-          
-          {/* Top Bar */}
-          <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
-             <div className="flex items-center gap-2 text-white">
-                <Camera size={20} className="text-emerald-400" />
-                <span className="font-medium tracking-wide">扫描二维码</span>
-             </div>
-             <button 
-                onClick={stopScanner} 
-                className="bg-slate-800/50 hover:bg-slate-700 backdrop-blur-md text-white p-2 rounded-full transition-all border border-white/10"
-             >
-                <X size={24} />
-             </button>
-          </div>
-
-          {/* Scanner Container (Full width) */}
-          <div id="reader" className="w-full h-full max-h-screen object-cover"></div>
-
-          {/* Custom Overlay UI */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            {/* Dark mask outside scan area */}
-            <div className="relative w-[70vw] h-[70vw] max-w-[300px] max-h-[300px]">
-              
-              {/* Corner Markers */}
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-xl"></div>
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-xl"></div>
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-500 rounded-bl-xl"></div>
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-500 rounded-br-xl"></div>
-              
-              {/* Scanning Laser Animation */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-400 shadow-[0_0_10px_#34d399] animate-[scan_2s_linear_infinite] opacity-80"></div>
-              <style>{`
-                @keyframes scan {
-                  0% { top: 0%; opacity: 0; }
-                  10% { opacity: 1; }
-                  90% { opacity: 1; }
-                  100% { top: 100%; opacity: 0; }
-                }
-              `}</style>
+        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
+            <div className="absolute top-0 w-full p-4 flex justify-between z-20">
+                <div className="text-white font-bold flex gap-2"><Camera /> 扫描二维码</div>
+                <button onClick={stopScanner} className="bg-white/20 p-2 rounded-full text-white"><X /></button>
             </div>
-            
-            <p className="absolute bottom-20 text-white/80 font-medium text-sm bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm">
-              请将摄像头对准发送方的二维码
-            </p>
+            <div id="reader" className="w-full h-full"></div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderChat = () => (
+    <div className="w-full max-w-2xl h-[85vh] flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl shadow-black/50 animate-in fade-in zoom-in duration-300">
+      {/* CHAT HEADER */}
+      <div className="p-4 bg-slate-900/80 border-b border-slate-700 flex justify-between items-center backdrop-blur-md">
+         <div className="flex items-center gap-3">
+             <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
+                 {role === 'sender' ? <Wifi size={20} /> : <Download size={20} />}
+             </div>
+             <div>
+                 <h3 className="font-bold text-white leading-tight">安全连接</h3>
+                 <div className="flex items-center gap-1.5">
+                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                     <span className="text-xs text-emerald-400">在线 • P2P加密</span>
+                 </div>
+             </div>
+         </div>
+         <button onClick={exitChat} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-red-400 transition-colors">
+             <X size={20} />
+         </button>
+      </div>
+
+      {/* CHAT MESSAGES AREA */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+          {messages.length === 0 && (
+              <div className="text-center py-10 opacity-50">
+                  <ShieldCheck className="w-12 h-12 mx-auto mb-2 text-slate-500" />
+                  <p className="text-slate-400">连接已建立。您可以开始发送消息或文件了。</p>
+              </div>
+          )}
+          
+          {messages.map((msg) => {
+              const isMe = msg.sender === 'me';
+              return (
+                  <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] rounded-2xl p-3 ${
+                          isMe 
+                          ? 'bg-indigo-600 text-white rounded-br-none' 
+                          : 'bg-slate-700 text-slate-100 rounded-bl-none'
+                      }`}>
+                          {/* Text Content */}
+                          {msg.type === 'text' && <p className="break-words leading-relaxed">{msg.content}</p>}
+
+                          {/* File Content */}
+                          {msg.type === 'file' && (
+                              <div className="w-64">
+                                  <div className="flex items-center gap-3 mb-3">
+                                      <div className={`p-2 rounded-lg ${isMe ? 'bg-indigo-500' : 'bg-slate-600'}`}>
+                                          <FileIcon size={24} />
+                                      </div>
+                                      <div className="overflow-hidden">
+                                          <p className="font-medium truncate text-sm">{msg.fileMeta?.name}</p>
+                                          <p className="text-xs opacity-70">
+                                              {((msg.fileMeta?.size || 0) / (1024 * 1024)).toFixed(2)} MB
+                                          </p>
+                                      </div>
+                                  </div>
+                                  
+                                  {/* Progress or Actions */}
+                                  {msg.status === 'completed' ? (
+                                      isMe ? (
+                                        <div className="text-xs flex items-center gap-1 opacity-80"><CheckCircle size={12} /> 已发送</div>
+                                      ) : (
+                                        <a href={msg.fileUrl} download={msg.fileMeta?.name} className="block w-full">
+                                            <button className="w-full bg-white/20 hover:bg-white/30 text-white py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                                                <Download size={14} /> 下载
+                                            </button>
+                                        </a>
+                                      )
+                                  ) : (
+                                      <div className="space-y-1">
+                                          <div className="flex justify-between text-xs opacity-70">
+                                              <span>{msg.sender === 'me' ? '发送中...' : '接收中...'}</span>
+                                              <span>{msg.progress}%</span>
+                                          </div>
+                                          <ProgressBar progress={msg.progress || 0} heightClass="h-1.5" colorClass={isMe ? "bg-white/80" : "bg-emerald-500"} />
+                                      </div>
+                                  )}
+                              </div>
+                          )}
+                          
+                          <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>
+                              {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </div>
+                      </div>
+                  </div>
+              )
+          })}
+          <div ref={messagesEndRef} />
+      </div>
+
+      {/* INPUT AREA */}
+      <div className="p-4 bg-slate-900/50 border-t border-slate-700 backdrop-blur-md">
+          <div className="flex items-end gap-2 bg-slate-800/80 p-2 rounded-xl border border-slate-700 focus-within:border-indigo-500/50 transition-colors">
+              <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  onChange={onFileSelect}
+                  disabled={isTransferring}
+              />
+              <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isTransferring} 
+                  className={`p-2 rounded-lg transition-colors shrink-0 mb-0.5 ${isTransferring ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-700 text-slate-400 hover:text-white'}`}
+                  title="发送文件"
+              >
+                  <Paperclip size={20} />
+              </button>
+              
+              <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder={isTransferring ? "文件传输中，请稍候..." : "输入消息..."}
+                  disabled={isTransferring}
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 resize-none max-h-32 py-2.5 min-h-[44px]"
+                  rows={1}
+                  style={{ height: 'auto', minHeight: '44px' }}
+              />
+              
+              <button 
+                  onClick={sendMessage}
+                  disabled={!inputText.trim() || isTransferring}
+                  className={`p-2.5 rounded-lg mb-0.5 transition-all shrink-0 ${
+                      !inputText.trim() || isTransferring 
+                      ? 'bg-slate-700 text-slate-500 cursor-not-allowed' 
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                  }`}
+              >
+                  {isTransferring ? <Loader2 size={18} className="animate-spin" /> : <ArrowUpCircle size={20} />}
+              </button>
           </div>
-        </div>
-      )}
+          {isTransferring && <p className="text-center text-xs text-slate-500 mt-2">正在传输文件，文本聊天暂时禁用以保证数据完整性。</p>}
+      </div>
     </div>
   );
 
-  const renderTransferring = () => (
-    <div className="glass-panel p-10 rounded-2xl max-w-lg w-full text-center">
-      <div className="relative w-24 h-24 mx-auto mb-8">
-        <div className="absolute inset-0 rounded-full border-4 border-slate-700"></div>
-        <div 
-          className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"
-          style={{ animationDuration: '1.5s' }}
-        ></div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xl font-bold">{Math.round(transferProgress)}%</span>
-        </div>
-      </div>
-      
-      <h3 className="text-xl font-bold mb-2">传输中...</h3>
-      <p className="text-slate-400 mb-8 truncate px-4">{currentFileMeta?.name}</p>
-      
-      <ProgressBar progress={transferProgress} />
-      
-      <p className="mt-4 text-sm text-slate-500">
-        正在进行点对点直传，请勿关闭此标签页。
-      </p>
-    </div>
-  );
-
-  const renderCompleted = () => (
-    <div className="glass-panel p-10 rounded-2xl max-w-lg w-full text-center animate-in fade-in zoom-in duration-300">
-      <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-        <CheckCircle className="w-10 h-10 text-emerald-500" />
-      </div>
-      
-      <h2 className="text-2xl font-bold mb-2">传输完成！</h2>
-      <p className="text-slate-400 mb-8 truncate px-4">{currentFileMeta?.name}</p>
-
-      {receivedFileUrl && (
-        <a 
-          href={receivedFileUrl} 
-          download={currentFileMeta?.name}
-          className="block w-full"
-        >
-          <Button className="w-full mb-4 !bg-emerald-600 hover:!bg-emerald-500" icon={<Download size={18} />}>
-            下载文件
-          </Button>
-        </a>
-      )}
-
-      <Button variant="secondary" onClick={resetApp} className="w-full">
-        发送其他文件
-      </Button>
-    </div>
-  );
-
-  const renderError = () => (
-    <div className="glass-panel p-8 rounded-2xl max-w-md w-full text-center border-red-500/30">
-      <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-        <XCircle className="w-8 h-8 text-red-500" />
-      </div>
-      <h3 className="text-xl font-bold text-red-400 mb-2">出错了！</h3>
-      <p className="text-slate-300 mb-6">{errorMsg || "连接似乎断开了。"}</p>
-      <Button variant="secondary" onClick={resetApp}>返回首页</Button>
-    </div>
+  const CheckCircle = ({size = 16}) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center relative overflow-hidden bg-slate-950">
-      {/* Background Ambience */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-indigo-900/30 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-[-10%] right-[20%] w-[500px] h-[500px] bg-emerald-900/20 rounded-full blur-[100px]"></div>
+    <div className="min-h-screen flex flex-col items-center relative overflow-hidden bg-slate-950 font-sans">
+       {/* Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] left-[20%] w-[600px] h-[600px] bg-indigo-900/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[20%] w-[500px] h-[500px] bg-emerald-900/10 rounded-full blur-[100px]"></div>
       </div>
 
-      <header className="w-full py-8 px-6 flex items-center justify-between max-w-6xl mx-auto z-10">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => appState !== AppState.TRANSFERRING && resetApp()}>
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Zap className="text-white w-5 h-5" fill="currentColor" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-white">Nexus<span className="text-indigo-400">Drop</span></span>
-        </div>
-        <div className="text-xs font-mono text-slate-500 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
-           P2P 加密 • 无服务器
-        </div>
-      </header>
+      {appState === AppState.HOME && (
+          <header className="w-full py-12 text-center z-10 animate-in fade-in slide-in-from-top-4 duration-700">
+             <div className="inline-flex items-center gap-3 mb-4 bg-slate-900/50 px-5 py-2 rounded-full border border-slate-800 backdrop-blur-sm">
+                 <Zap className="text-yellow-400 w-5 h-5" fill="currentColor" />
+                 <span className="text-slate-300 font-medium tracking-wide text-sm">P2P 安全直连 • 不限速</span>
+             </div>
+             <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-6 tracking-tight">
+                 Nexus<span className="text-indigo-500">Drop</span>
+             </h1>
+             <p className="text-lg text-slate-400 max-w-2xl mx-auto px-6">
+                 下一代浏览器点对点传输工具。无需登录，无需服务器中转，像聊天一样发送文件。
+             </p>
+          </header>
+      )}
 
-      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 z-10 py-10">
+      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 z-10 pb-10">
         {appState === AppState.HOME && renderHome()}
-        {appState === AppState.SENDER_LOBBY && renderSenderLobby()}
-        {appState === AppState.RECEIVER_LOBBY && renderReceiverLobby()}
-        {appState === AppState.TRANSFERRING && renderTransferring()}
-        {appState === AppState.COMPLETED && renderCompleted()}
-        {appState === AppState.ERROR && renderError()}
+        {appState === AppState.SETUP && renderSetup()}
+        {appState === AppState.CHAT && renderChat()}
+        {appState === AppState.ERROR && (
+            <div className="glass-panel p-8 rounded-2xl max-w-md w-full text-center border-red-500/30">
+                <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-red-400 mb-2">出错了</h3>
+                <p className="text-slate-300 mb-6">{errorMsg}</p>
+                <Button variant="secondary" onClick={() => window.location.reload()}>重试</Button>
+            </div>
+        )}
       </main>
-
-      <footer className="w-full py-6 text-center text-slate-600 text-sm">
-        <p>© 2024 NexusDrop. 技术支持：WebRTC & Gemini.</p>
-      </footer>
     </div>
   );
 };
