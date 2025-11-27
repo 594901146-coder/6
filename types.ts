@@ -24,9 +24,10 @@ export interface PeerMessage {
   payload: any;
 }
 
-// PeerJS Global Declaration since we are loading via CDN
+// Global Declaration for CDN libraries
 declare global {
   interface Window {
     Peer: any;
+    Html5Qrcode: any;
   }
 }

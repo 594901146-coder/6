@@ -16,7 +16,9 @@ import {
   ShieldCheck,
   Zap,
   AlertTriangle,
-  QrCode
+  QrCode,
+  ScanLine,
+  X
 } from 'lucide-react';
 
 // Main Component
@@ -34,12 +36,14 @@ const App: React.FC = () => {
   const [isGeneratingId, setIsGeneratingId] = useState(false);
   const [isPeerReady, setIsPeerReady] = useState(true);
   const [showQr, setShowQr] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Refs for PeerJS objects (not state to avoid re-renders)
   const peerRef = useRef<any>(null);
   const connRef = useRef<any>(null);
   const receivedChunksRef = useRef<BlobPart[]>([]);
   const receivedSizeRef = useRef<number>(0);
+  const scannerRef = useRef<any>(null);
 
   // Check if PeerJS is loaded
   useEffect(() => {
@@ -60,6 +64,67 @@ const App: React.FC = () => {
       return () => clearInterval(checkInterval);
     }
   }, []);
+
+  // --- SCANNER LOGIC ---
+  useEffect(() => {
+    if (isScanning && !scannerRef.current) {
+      // Delay slightly to ensure DOM element exists
+      const timer = setTimeout(() => {
+        const startScanner = async () => {
+          if (typeof window.Html5Qrcode === 'undefined') {
+            setErrorMsg("扫码库未加载，请检查网络。");
+            setIsScanning(false);
+            return;
+          }
+
+          try {
+            const html5QrCode = new window.Html5Qrcode("reader");
+            scannerRef.current = html5QrCode;
+            
+            await html5QrCode.start(
+              { facingMode: "environment" }, 
+              {
+                fps: 10,
+                qrbox: { width: 250, height: 250 }
+              },
+              (decodedText: string) => {
+                // Success callback
+                console.log(`Code matched = ${decodedText}`);
+                setTargetPeerId(decodedText);
+                stopScanner();
+              },
+              (errorMessage: string) => {
+                // parse error, ignore it.
+              }
+            );
+          } catch (err) {
+            console.error("Error starting scanner", err);
+            setErrorMsg("无法启动摄像头，请确保已授予权限。");
+            setIsScanning(false);
+          }
+        };
+        startScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+
+    return () => {
+      // Cleanup happens in stopScanner mainly, but safety check here
+    };
+  }, [isScanning]);
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (e) {
+        console.error("Failed to stop scanner", e);
+      }
+      scannerRef.current = null;
+    }
+    setIsScanning(false);
+  };
 
   // --- HELPER: Initialize Peer ---
   const initializePeer = useCallback((id?: string) => {
@@ -277,8 +342,10 @@ const App: React.FC = () => {
   const resetApp = () => {
      // Clean up
      if (peerRef.current) peerRef.current.destroy();
+     if (scannerRef.current) stopScanner();
      peerRef.current = null;
      connRef.current = null;
+     scannerRef.current = null;
      setAppState(AppState.HOME);
      setFiles([]);
      setReceivedFileUrl(null);
@@ -287,6 +354,7 @@ const App: React.FC = () => {
      setTargetPeerId('');
      setErrorMsg('');
      setShowQr(false);
+     setIsScanning(false);
   };
 
   // --- RENDERERS ---
@@ -421,7 +489,7 @@ const App: React.FC = () => {
   );
 
   const renderReceiverLobby = () => (
-    <div className="glass-panel p-8 rounded-2xl max-w-lg w-full">
+    <div className="glass-panel p-8 rounded-2xl max-w-lg w-full relative">
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Download className="text-emerald-400" /> 加入房间
       </h2>
@@ -437,6 +505,13 @@ const App: React.FC = () => {
               placeholder="例如：cosmic-red-fox-123"
               className="flex-1 bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none font-mono"
             />
+            <button 
+              onClick={() => setIsScanning(true)}
+              className="px-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl text-white transition-colors flex items-center justify-center"
+              title="扫码加入"
+            >
+              <ScanLine size={20} />
+            </button>
           </div>
         </div>
 
@@ -449,6 +524,24 @@ const App: React.FC = () => {
           连接
         </Button>
       </div>
+
+      {/* SCANNER MODAL OVERLAY */}
+      {isScanning && (
+        <div className="absolute inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center rounded-2xl overflow-hidden p-4">
+          <div className="w-full flex justify-between items-center mb-4">
+            <h3 className="font-bold text-white">扫描二维码</h3>
+            <button onClick={stopScanner} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700">
+              <X size={20} />
+            </button>
+          </div>
+          <div id="reader" className="w-full h-64 bg-black rounded-lg overflow-hidden relative">
+            {/* Library renders here */}
+          </div>
+          <p className="text-sm text-slate-400 mt-4 text-center">
+            请将发送方的二维码置于框内
+          </p>
+        </div>
+      )}
     </div>
   );
 
