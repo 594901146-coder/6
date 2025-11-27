@@ -26,7 +26,9 @@ import {
   Server,
   RefreshCw,
   Sparkles,
-  Lock
+  Lock,
+  User,
+  CheckCheck
 } from 'lucide-react';
 
 // Main Component
@@ -80,7 +82,7 @@ const App: React.FC = () => {
 
   const addLog = (msg: string) => {
     const time = new Date().toLocaleTimeString();
-    setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 100));
+    setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(100)); // Limit logs, keep logic simple
     console.log(`[AppLog] ${msg}`);
   };
 
@@ -733,16 +735,8 @@ const App: React.FC = () => {
 
   const renderSetup = () => (
     <div className="glass-panel p-8 rounded-3xl max-w-lg w-full animate-in slide-in-from-bottom-8 duration-500 relative border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] bg-slate-900/60 backdrop-blur-2xl">
-      <div className="absolute top-4 right-4 flex gap-2">
-           <button onClick={() => setShowLogs(!showLogs)} className={`p-2 rounded-full hover:bg-slate-700/50 transition-colors ${showLogs ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500'}`} title="显示/隐藏连接日志">
-               <Terminal size={18} />
-           </button>
-           <button onClick={() => setShowHelp(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors text-slate-500 hover:text-indigo-400" title="为什么需要连接服务器？">
-               <HelpCircle size={18} />
-           </button>
-      </div>
-
-      <div className="flex justify-between items-center mb-8">
+      {/* Consolidated Header with Toolbar */}
+      <div className="flex justify-between items-start mb-8">
         <div className="flex items-center gap-4">
              <div className={`p-3 rounded-2xl ${role === 'sender' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                 {role === 'sender' ? <Wifi size={24} /> : <Download size={24} />}
@@ -752,9 +746,21 @@ const App: React.FC = () => {
                  <p className="text-sm text-slate-400">{role === 'sender' ? '分享下方口令' : '连接到发送方'}</p>
              </div>
         </div>
-        <button onClick={exitChat} className="text-slate-500 hover:text-white transition-colors bg-slate-800/50 p-2 rounded-full hover:bg-red-500/20 hover:text-red-400">
-            <X size={20} />
-        </button>
+
+        {/* Toolbar Group */}
+        <div className="flex items-center gap-1 bg-slate-800/60 p-1.5 rounded-xl border border-white/5 backdrop-blur-sm">
+           <button onClick={() => setShowLogs(!showLogs)} className={`p-2 rounded-lg transition-colors ${showLogs ? 'text-indigo-400 bg-indigo-500/20' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="查看系统日志">
+               <Terminal size={18} />
+           </button>
+           <div className="w-px h-4 bg-white/10 mx-0.5"></div>
+           <button onClick={() => setShowHelp(true)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="核心技术原理">
+               <Sparkles size={18} />
+           </button>
+           <div className="w-px h-4 bg-white/10 mx-0.5"></div>
+           <button onClick={exitChat} className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="返回首页">
+               <X size={18} />
+           </button>
+        </div>
       </div>
 
       {role === 'sender' ? (
@@ -934,7 +940,7 @@ const App: React.FC = () => {
       </div>
 
       {/* CHAT MESSAGES AREA */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-transparent relative">
+      <div className="flex-1 overflow-y-auto p-6 scroll-smooth bg-transparent relative">
           {/* Subtle pattern in chat background */}
           <div className="absolute inset-0 opacity-5 pointer-events-none" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
 
@@ -948,30 +954,47 @@ const App: React.FC = () => {
               </div>
           )}
           
-          {messages.map((msg) => {
+          <div className="space-y-1">
+          {messages.map((msg, index) => {
               const isMe = msg.sender === 'me';
+              const isSequence = index > 0 && messages[index - 1].sender === msg.sender;
+              
               return (
-                  <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-4 duration-300 group`}>
-                      <div className={`max-w-[85%] sm:max-w-[70%] shadow-lg relative ${
+                  <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isSequence ? 'mt-1' : 'mt-6'} animate-in slide-in-from-bottom-2 duration-300 group`}>
+                      
+                      {/* Avatar for Peer (Only show if not sequence or always show for structure? Let's show only on top or simple layout. Let's do simple layout: Avatar always there but hidden if sequence? No, let's keep it clean.) 
+                          Actually, for P2P 1on1, avatars are nice. */}
+                      {!isMe && (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mr-3 border border-white/10 shadow-sm transition-opacity ${isSequence ? 'opacity-0' : 'bg-slate-800 text-slate-400'}`}>
+                           {!isSequence && <User size={14} />}
+                        </div>
+                      )}
+
+                      <div className={`max-w-[85%] sm:max-w-[70%] shadow-md relative transition-all hover:shadow-lg ${
                           isMe 
-                          ? 'rounded-2xl rounded-tr-sm bg-gradient-to-br from-indigo-600 to-violet-600 text-white border border-indigo-400/20' 
-                          : 'rounded-2xl rounded-tl-sm bg-slate-800 text-slate-100 border border-slate-700'
+                          ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white border border-indigo-400/20' 
+                          : 'bg-slate-800 text-slate-100 border border-slate-700/50'
+                      } ${
+                          // Dynamic Border Radius logic
+                          isMe 
+                            ? (isSequence ? 'rounded-2xl rounded-tr-md' : 'rounded-2xl rounded-tr-sm') 
+                            : (isSequence ? 'rounded-2xl rounded-tl-md' : 'rounded-2xl rounded-tl-sm')
                       }`}>
                           {/* Message Content Container */}
-                          <div className="p-4">
+                          <div className={`${msg.type === 'file' ? 'p-2' : 'px-4 py-3'}`}>
                               {/* Text Content */}
                               {msg.type === 'text' && <p className="break-words leading-relaxed whitespace-pre-wrap text-[15px]">{msg.content}</p>}
 
                               {/* File Content */}
                               {msg.type === 'file' && (
-                                  <div className="w-full sm:w-72">
-                                      <div className="flex items-center gap-4 mb-4">
-                                          <div className={`p-3.5 rounded-xl shrink-0 ${isMe ? 'bg-white/20' : 'bg-slate-700 border border-slate-600'}`}>
-                                              <FileIcon size={28} className={isMe ? "text-white" : "text-emerald-400"} />
+                                  <div className={`w-full sm:w-72 rounded-xl p-3 ${isMe ? 'bg-indigo-800/30' : 'bg-slate-900/50'} border ${isMe ? 'border-indigo-400/20' : 'border-white/5'}`}>
+                                      <div className="flex items-center gap-3 mb-3">
+                                          <div className={`p-2.5 rounded-lg shrink-0 ${isMe ? 'bg-indigo-500/20 text-white' : 'bg-slate-700 text-emerald-400'}`}>
+                                              <FileIcon size={20} />
                                           </div>
                                           <div className="overflow-hidden min-w-0 flex-1">
-                                              <p className="font-bold truncate text-sm mb-1" title={msg.fileMeta?.name}>{msg.fileMeta?.name}</p>
-                                              <p className="text-xs opacity-70 font-mono">
+                                              <p className="font-bold truncate text-sm mb-0.5" title={msg.fileMeta?.name}>{msg.fileMeta?.name}</p>
+                                              <p className="text-[10px] opacity-70 font-mono">
                                                   {((msg.fileMeta?.size || 0) / (1024 * 1024)).toFixed(2)} MB
                                               </p>
                                           </div>
@@ -980,20 +1003,20 @@ const App: React.FC = () => {
                                       {/* Progress or Actions */}
                                       {msg.status === 'completed' ? (
                                           isMe ? (
-                                            <div className="text-xs flex items-center justify-end gap-1.5 opacity-90 font-medium bg-black/20 py-1.5 px-3 rounded-lg w-fit ml-auto border border-white/10">
-                                                <CheckCircle size={14} /> 发送成功
+                                            <div className="text-xs flex items-center justify-center gap-1.5 opacity-90 font-medium bg-black/20 py-2 rounded-lg w-full border border-white/5">
+                                                <CheckCircle size={14} /> 传输成功
                                             </div>
                                           ) : (
                                             <a href={msg.fileUrl} download={msg.fileMeta?.name} className="block w-full">
-                                                <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:scale-[1.02] border-t border-white/10">
-                                                    <Download size={18} /> 下载文件
+                                                <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:scale-[1.02] border-t border-white/10">
+                                                    <Download size={14} /> 下载
                                                 </button>
                                             </a>
                                           )
                                       ) : (
-                                          <div className="space-y-2 bg-black/20 p-3 rounded-xl border border-white/5">
-                                              <div className="flex justify-between text-xs font-bold tracking-wide">
-                                                  <span className="opacity-70">{msg.sender === 'me' ? 'UPLOADING...' : 'DOWNLOADING...'}</span>
+                                          <div className="space-y-1.5">
+                                              <div className="flex justify-between text-[10px] font-bold tracking-wide uppercase opacity-70">
+                                                  <span>{msg.sender === 'me' ? 'Uploading...' : 'Downloading...'}</span>
                                                   <span>{msg.progress}%</span>
                                               </div>
                                               <ProgressBar progress={msg.progress || 0} heightClass="h-1.5" colorClass={isMe ? "bg-white" : "bg-emerald-400"} />
@@ -1003,14 +1026,16 @@ const App: React.FC = () => {
                               )}
                           </div>
 
-                          {/* Timestamp */}
-                          <div className={`text-[10px] absolute -bottom-5 ${isMe ? 'right-1' : 'left-1'} font-medium opacity-0 group-hover:opacity-60 transition-opacity text-slate-500`}>
+                          {/* Timestamp & Status (only show on hover or for last message) */}
+                          <div className={`text-[10px] flex items-center gap-1 absolute -bottom-5 ${isMe ? 'right-0' : 'left-0'} font-medium text-slate-500 transition-opacity ${isSequence ? 'opacity-0 group-hover:opacity-100' : 'opacity-60'}`}>
                               {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              {isMe && <CheckCheck size={14} className={msg.status === 'completed' || msg.type === 'text' ? "text-indigo-400" : "text-slate-600"} />}
                           </div>
                       </div>
                   </div>
               )
           })}
+          </div>
           <div ref={messagesEndRef} />
       </div>
 
