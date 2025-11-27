@@ -1,0 +1,53 @@
+import { GoogleGenAI } from "@google/genai";
+
+/**
+ * Generates a memorable, human-readable ID for the P2P session.
+ * e.g., "cosmic-blue-falcon"
+ */
+export const generateConnectionPhrase = async (): Promise<string> => {
+  try {
+    // Safely access the API key. 
+    // In some static browser environments, accessing 'process' might throw a ReferenceError.
+    let apiKey = '';
+    try {
+      if (typeof process !== 'undefined' && process.env) {
+        apiKey = process.env.API_KEY || '';
+      }
+    } catch (e) {
+      console.warn("Environment variable access failed:", e);
+    }
+
+    if (!apiKey) {
+      throw new Error("API Key not found in environment");
+    }
+
+    // Initialize AI only when needed and safe
+    const ai = new GoogleGenAI({ apiKey });
+    
+    const model = 'gemini-2.5-flash';
+    const prompt = "Generate a single, unique, 3-word hyphenated phrase (adjective-noun-noun or adjective-adjective-noun) that sounds sci-fi and cool for a temporary room code. Lowercase only. No spaces. Example: 'neon-cyber-wolf'. Return ONLY the string.";
+    
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+    });
+
+    const text = response.text;
+    if (text) {
+      // Clean up any accidental whitespace or newlines
+      const cleanId = text.trim().toLowerCase().replace(/[^a-z-]/g, '');
+      // Append a small random number to ensure uniqueness on the public PeerServer
+      const suffix = Math.floor(Math.random() * 999);
+      return `${cleanId}-${suffix}`;
+    }
+    
+    throw new Error("Empty response from Gemini");
+  } catch (error) {
+    console.error("Gemini ID generation failed or Key missing, falling back to random:", error);
+    // Fallback if API fails or key is missing
+    const adj = ['red', 'blue', 'fast', 'silent', 'cosmic', 'nano', 'hyper', 'solar'];
+    const noun = ['fox', 'ship', 'base', 'star', 'moon', 'link', 'core', 'wave'];
+    const random = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+    return `${random(adj)}-${random(noun)}-${Math.floor(Math.random() * 999)}`;
+  }
+};
