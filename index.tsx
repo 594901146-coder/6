@@ -1,9 +1,12 @@
-import React, { Component, ReactNode } from 'react';
+import React, { Component, ReactNode, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+
+// Lazy load the App component. 
+// This allows the ErrorBoundary to catch errors that happen during the import of App.tsx
+const App = React.lazy(() => import('./App'));
 
 interface ErrorBoundaryProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -13,10 +16,7 @@ interface ErrorBoundaryState {
 
 // Error Boundary Component to catch crashes
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -45,7 +45,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               程序遇到错误 (Application Error)
             </h1>
             <p style={{ marginBottom: '1rem' }}>
-              网页在加载时崩溃了。这通常是因为环境变量配置问题或网络连接问题。
+              网页在加载时崩溃了。
             </p>
             <div style={{ 
               backgroundColor: '#1e293b', 
@@ -55,7 +55,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               border: '1px solid #334155',
               fontFamily: 'monospace',
               fontSize: '0.875rem',
-              color: '#e2e8f0'
+              color: '#e2e8f0',
+              maxHeight: '200px'
             }}>
               {this.state.error?.toString()}
             </div>
@@ -83,6 +84,32 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
+const LoadingScreen = () => (
+  <div style={{ 
+    height: '100vh', 
+    width: '100vw', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: '#0f172a',
+    color: '#94a3b8'
+  }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ 
+        width: '32px', 
+        height: '32px', 
+        borderRadius: '50%', 
+        border: '3px solid #3b82f6', 
+        borderTopColor: 'transparent', 
+        animation: 'spin 1s linear infinite' 
+      }}>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+      <span>正在启动 NexusDrop...</span>
+    </div>
+  </div>
+);
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
@@ -92,7 +119,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <Suspense fallback={<LoadingScreen />}>
+        <App />
+      </Suspense>
     </ErrorBoundary>
   </React.StrictMode>
 );
