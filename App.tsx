@@ -14,7 +14,8 @@ import {
   FileIcon, 
   ArrowRight,
   ShieldCheck,
-  Zap
+  Zap,
+  AlertTriangle
 } from 'lucide-react';
 
 // Main Component
@@ -30,6 +31,7 @@ const App: React.FC = () => {
   const [receivedFileUrl, setReceivedFileUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isGeneratingId, setIsGeneratingId] = useState(false);
+  const [isPeerReady, setIsPeerReady] = useState(true);
 
   // Refs for PeerJS objects (not state to avoid re-renders)
   const peerRef = useRef<any>(null);
@@ -37,45 +39,79 @@ const App: React.FC = () => {
   const receivedChunksRef = useRef<BlobPart[]>([]);
   const receivedSizeRef = useRef<number>(0);
 
+  // Check if PeerJS is loaded
+  useEffect(() => {
+    if (typeof window.Peer === 'undefined') {
+      console.warn("PeerJS not loaded yet, checking...");
+      const checkInterval = setInterval(() => {
+        if (typeof window.Peer !== 'undefined') {
+          setIsPeerReady(true);
+          clearInterval(checkInterval);
+        } else {
+          setIsPeerReady(false);
+        }
+      }, 1000);
+      
+      // Timeout after 5s
+      setTimeout(() => clearInterval(checkInterval), 5000);
+      
+      return () => clearInterval(checkInterval);
+    }
+  }, []);
+
   // --- HELPER: Initialize Peer ---
   const initializePeer = useCallback((id?: string) => {
     if (peerRef.current) return peerRef.current;
 
-    // Use Google's public STUN servers to improve connection success rate over the internet
-    const peer = new window.Peer(id, {
-      debug: 1,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
-      }
-    });
-
-    peer.on('open', (id: string) => {
-      console.log('My peer ID is: ' + id);
-      setPeerId(id);
-    });
-
-    peer.on('connection', (conn: any) => {
-      console.log('Incoming connection from:', conn.peer);
-      handleConnection(conn);
-    });
-
-    peer.on('error', (err: any) => {
-      console.error('Peer error:', err);
-      // Friendly error messages
-      let msg = `连接错误: ${err.type}`;
-      if (err.type === 'peer-unavailable') msg = "找不到该房间，请检查口令是否正确。";
-      if (err.type === 'disconnected') msg = "与服务器的连接已断开。";
-      if (err.type === 'network') msg = "网络连接不稳定。";
-      
-      setErrorMsg(msg);
+    if (typeof window.Peer === 'undefined') {
+      setErrorMsg("PeerJS 库未能加载，请检查网络或刷新页面。");
       setAppState(AppState.ERROR);
-    });
+      return null;
+    }
 
-    peerRef.current = peer;
-    return peer;
+    try {
+      // Use Google's public STUN servers to improve connection success rate over the internet
+      const peer = new window.Peer(id, {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+        }
+      });
+
+      peer.on('open', (id: string) => {
+        console.log('My peer ID is: ' + id);
+        setPeerId(id);
+      });
+
+      peer.on('connection', (conn: any) => {
+        console.log('Incoming connection from:', conn.peer);
+        handleConnection(conn);
+      });
+
+      peer.on('error', (err: any) => {
+        console.error('Peer error:', err);
+        // Friendly error messages
+        let msg = `连接错误: ${err.type}`;
+        if (err.type === 'peer-unavailable') msg = "找不到该房间，请检查口令是否正确。";
+        if (err.type === 'disconnected') msg = "与服务器的连接已断开。";
+        if (err.type === 'network') msg = "网络连接不稳定。";
+        if (err.type === 'unavailable-id') msg = "ID 生成冲突，请重试。";
+        
+        setErrorMsg(msg);
+        setAppState(AppState.ERROR);
+      });
+
+      peerRef.current = peer;
+      return peer;
+    } catch (e: any) {
+      console.error("Peer init failed:", e);
+      setErrorMsg("初始化 P2P 连接失败: " + e.message);
+      setAppState(AppState.ERROR);
+      return null;
+    }
   }, []);
 
   // --- HELPER: Handle Connection (Both sides) ---
@@ -148,9 +184,9 @@ const App: React.FC = () => {
       const id = await generateConnectionPhrase();
       initializePeer(id);
       setAppState(AppState.SENDER_LOBBY);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setErrorMsg("初始化发送模式失败。请刷新重试。");
+      setErrorMsg(`初始化发送模式失败: ${e.message}`);
       setAppState(AppState.ERROR);
     } finally {
       setIsGeneratingId(false);
@@ -246,15 +282,23 @@ const App: React.FC = () => {
      setTransferProgress(0);
      setConnectionStatus('Disconnected');
      setTargetPeerId('');
+     setErrorMsg('');
   };
 
   // --- RENDERERS ---
 
   const renderHome = () => (
     <div className="flex flex-col md:flex-row gap-8 max-w-4xl w-full">
+      {!isPeerReady && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-yellow-600/20 border border-yellow-500/50 text-yellow-200 px-4 py-2 rounded-lg flex items-center gap-2">
+           <AlertTriangle size={18} />
+           <span>正在加载核心组件，请稍候... (如果长时间未加载，请刷新)</span>
+        </div>
+      )}
+      
       <div 
-        onClick={startAsSender}
-        className="flex-1 cursor-pointer group hover:scale-[1.02] transition-transform duration-300"
+        onClick={isPeerReady ? startAsSender : undefined}
+        className={`flex-1 group hover:scale-[1.02] transition-transform duration-300 ${!isPeerReady ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <div className="glass-panel h-64 md:h-80 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-indigo-500 bg-gradient-to-b from-slate-800 to-slate-900">
           <div className="w-20 h-20 rounded-full bg-indigo-500/20 flex items-center justify-center mb-6 group-hover:bg-indigo-500/30 transition-colors">
@@ -266,8 +310,8 @@ const App: React.FC = () => {
       </div>
 
       <div 
-        onClick={startAsReceiver}
-        className="flex-1 cursor-pointer group hover:scale-[1.02] transition-transform duration-300"
+        onClick={isPeerReady ? startAsReceiver : undefined}
+        className={`flex-1 group hover:scale-[1.02] transition-transform duration-300 ${!isPeerReady ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <div className="glass-panel h-64 md:h-80 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-emerald-500 bg-gradient-to-b from-slate-800 to-slate-900">
           <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6 group-hover:bg-emerald-500/30 transition-colors">
@@ -289,11 +333,11 @@ const App: React.FC = () => {
       <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 mb-8 text-center">
         <p className="text-sm text-slate-400 mb-2 uppercase tracking-wider font-semibold">分享此口令</p>
         <div className="flex items-center justify-center gap-3">
-          <span className="text-3xl font-mono font-bold text-white tracking-tight">{peerId || '...'}</span>
+          <span className="text-3xl font-mono font-bold text-white tracking-tight break-all">{peerId || '...'}</span>
           {peerId && (
             <button 
               onClick={() => navigator.clipboard.writeText(peerId)}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white shrink-0"
               title="复制到剪贴板"
             >
               <Copy size={20} />
@@ -322,7 +366,7 @@ const App: React.FC = () => {
           {files.length > 0 ? (
             <div className="flex flex-col items-center">
               <FileIcon className="w-12 h-12 text-indigo-400 mb-2" />
-              <p className="font-medium text-white truncate max-w-full">{files[0].name}</p>
+              <p className="font-medium text-white truncate max-w-full px-4">{files[0].name}</p>
               <p className="text-sm text-slate-400">{(files[0].size / (1024 * 1024)).toFixed(2)} MB</p>
             </div>
           ) : (
@@ -394,7 +438,7 @@ const App: React.FC = () => {
       </div>
       
       <h3 className="text-xl font-bold mb-2">传输中...</h3>
-      <p className="text-slate-400 mb-8">{currentFileMeta?.name}</p>
+      <p className="text-slate-400 mb-8 truncate px-4">{currentFileMeta?.name}</p>
       
       <ProgressBar progress={transferProgress} />
       
@@ -411,7 +455,7 @@ const App: React.FC = () => {
       </div>
       
       <h2 className="text-2xl font-bold mb-2">传输完成！</h2>
-      <p className="text-slate-400 mb-8">{currentFileMeta?.name}</p>
+      <p className="text-slate-400 mb-8 truncate px-4">{currentFileMeta?.name}</p>
 
       {receivedFileUrl && (
         <a 
@@ -438,7 +482,7 @@ const App: React.FC = () => {
       </div>
       <h3 className="text-xl font-bold text-red-400 mb-2">出错了！</h3>
       <p className="text-slate-300 mb-6">{errorMsg || "连接似乎断开了。"}</p>
-      <Button variant="secondary" onClick={resetApp}>重试</Button>
+      <Button variant="secondary" onClick={resetApp}>返回首页</Button>
     </div>
   );
 
