@@ -280,12 +280,14 @@ const App: React.FC = () => {
   // --- DATA HANDLING ---
   
   const handleIncomingData = (data: any) => {
-    // Robust binary check
-    const isBinary = data instanceof ArrayBuffer || 
-                     data instanceof Uint8Array || 
-                     data instanceof Blob || 
-                     (data && data.constructor && data.constructor.name === 'ArrayBuffer') ||
-                     (data && data.buffer instanceof ArrayBuffer);
+    // Robust binary check for various data types PeerJS might emit
+    const isBinary = 
+        data instanceof ArrayBuffer || 
+        data instanceof Uint8Array || 
+        data instanceof Blob || 
+        (data && data.constructor && data.constructor.name === 'ArrayBuffer') ||
+        (data && data.buffer instanceof ArrayBuffer) ||
+        (data && data.type === 'Buffer'); // Some polyfills emit this
     
     if (isBinary) {
       handleFileChunk(data);
@@ -332,6 +334,7 @@ const App: React.FC = () => {
           // Ack to start stream
           setTimeout(() => {
              if(connRef.current && connRef.current.open) {
+                 addLog("发送 ACK_FILE_START");
                  connRef.current.send({ type: 'ACK_FILE_START' });
              }
           }, 50);
@@ -351,11 +354,23 @@ const App: React.FC = () => {
   const handleFileChunk = (data: any) => {
     const meta = currentIncomingMetaRef.current || fileMetaRef.current;
     if (!meta) {
-        addLog("收到数据块但无文件元数据，丢弃");
+        // Only log this once to avoid spamming
+        if (Math.random() < 0.01) addLog("收到数据块但无文件元数据 (可能丢包或乱序)");
         return;
     }
     
-    const chunk = data instanceof Blob ? data : new Blob([data]);
+    // Normalize data to Blob
+    let chunk: Blob;
+    if (data instanceof Blob) {
+        chunk = data;
+    } else if (data instanceof ArrayBuffer) {
+        chunk = new Blob([data]);
+    } else if (data.buffer && data.buffer instanceof ArrayBuffer) {
+        chunk = new Blob([data]); // Handle Uint8Array
+    } else {
+        chunk = new Blob([data]); // Fallback
+    }
+
     receivedChunksRef.current.push(chunk);
     receivedSizeRef.current += chunk.size;
 
@@ -507,9 +522,10 @@ const App: React.FC = () => {
     }, 15000);
 
     try {
+        // IMPORTANT: Removed serialization: 'json' to allow raw binary transfer
+        // Default PeerJS behavior (BinaryPack) handles both JSON and Binary correctly
         const conn = peerRef.current.connect(target, { 
-            reliable: true,
-            serialization: 'json' // Explicit serialization
+            reliable: true 
         });
         
         if (!conn) {
@@ -585,7 +601,7 @@ const App: React.FC = () => {
   };
 
   const streamFile = (file: File) => {
-      const chunkSize = 16 * 1024; // 16KB chunks are safer for congestion control
+      const chunkSize = 16 * 1024; // 16KB chunks
       let offset = 0;
       
       const readSlice = (o: number) => {
@@ -617,8 +633,8 @@ const App: React.FC = () => {
                     }
 
                     if (offset < file.size) {
-                        // Use requestAnimationFrame for smoother UI, but setTimeout 0 is faster for throughput
-                        setTimeout(() => readSlice(offset), 0);
+                        // Small delay to prevent flooding the P2P channel and UI thread
+                        setTimeout(() => readSlice(offset), 5);
                     } else {
                         addLog("文件发送完成");
                         setIsTransferring(false);
