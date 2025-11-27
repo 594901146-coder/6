@@ -38,12 +38,16 @@ const App: React.FC = () => {
   const [showQr, setShowQr] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Refs for PeerJS objects (not state to avoid re-renders)
+  // Refs for persistent data access inside callbacks (avoids stale closures)
   const peerRef = useRef<any>(null);
   const connRef = useRef<any>(null);
   const receivedChunksRef = useRef<BlobPart[]>([]);
   const receivedSizeRef = useRef<number>(0);
   const scannerRef = useRef<any>(null);
+  
+  // Critical Refs for transfer logic
+  const fileMetaRef = useRef<FileMetadata | null>(null);
+  const filesRef = useRef<File[]>([]);
 
   // Check if PeerJS is loaded
   useEffect(() => {
@@ -210,35 +214,48 @@ const App: React.FC = () => {
   // --- HELPER: Handle Incoming Data ---
   const handleData = (data: any) => {
     // 1. Metadata packet
-    if (data.type === 'METADATA') {
+    if (data && data.type === 'METADATA') {
       const meta = data.payload as FileMetadata;
       setCurrentFileMeta(meta);
+      fileMetaRef.current = meta; // Sync ref for immediate access
+      
       receivedChunksRef.current = [];
       receivedSizeRef.current = 0;
       setAppState(AppState.TRANSFERRING);
       setTransferProgress(0);
       
       // Auto-ack to start transfer
-      connRef.current.send({ type: 'ACK' });
+      if (connRef.current) {
+        connRef.current.send({ type: 'ACK' });
+      }
     } 
     // 2. Acknowledgement
-    else if (data.type === 'ACK') {
+    else if (data && data.type === 'ACK') {
       startFileTransfer();
     }
     // 3. File Chunk (Binary)
-    else if (data.constructor === ArrayBuffer || data.constructor === Uint8Array || data instanceof Blob) {
-      if (!currentFileMeta) return;
+    else {
+      // Robust binary check: PeerJS can send ArrayBuffer, Blob, or Uint8Array
+      const isBinary = data instanceof ArrayBuffer || data instanceof Uint8Array || data instanceof Blob || (data && data.buffer instanceof ArrayBuffer);
+      
+      if (isBinary) {
+        // Use Ref because closure 'currentFileMeta' might be stale
+        if (!fileMetaRef.current) {
+           console.warn("Received binary chunk but metadata is missing.");
+           return;
+        }
 
-      const chunk = data instanceof Blob ? data : new Blob([data]);
-      receivedChunksRef.current.push(chunk);
-      receivedSizeRef.current += chunk.size;
+        const chunk = data instanceof Blob ? data : new Blob([data]);
+        receivedChunksRef.current.push(chunk);
+        receivedSizeRef.current += chunk.size;
 
-      // Calculate progress
-      const progress = (receivedSizeRef.current / currentFileMeta.size) * 100;
-      setTransferProgress(progress);
+        // Calculate progress
+        const progress = (receivedSizeRef.current / fileMetaRef.current.size) * 100;
+        setTransferProgress(progress);
 
-      if (receivedSizeRef.current >= currentFileMeta.size) {
-        finishReception();
+        if (receivedSizeRef.current >= fileMetaRef.current.size) {
+          finishReception();
+        }
       }
     }
   };
@@ -263,13 +280,16 @@ const App: React.FC = () => {
 
   const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFiles(Array.from(e.target.files));
+      const selectedFiles = Array.from(e.target.files);
+      setFiles(selectedFiles);
+      filesRef.current = selectedFiles; // Keep ref in sync
     }
   };
 
   const initiateTransfer = () => {
-    if (!connRef.current || files.length === 0) return;
-    const file = files[0];
+    // Use ref to be safe, though button click usually has fresh state
+    if (!connRef.current || filesRef.current.length === 0) return;
+    const file = filesRef.current[0];
     
     const meta: FileMetadata = {
       name: file.name,
@@ -283,7 +303,13 @@ const App: React.FC = () => {
   };
 
   const startFileTransfer = () => {
-    const file = files[0];
+    // Must use ref here because this function is called from handleData (stale closure)
+    const file = filesRef.current[0];
+    if (!file) {
+      console.error("No file found to transfer");
+      return;
+    }
+
     const chunk_size = 64 * 1024; // 64KB chunks
     let offset = 0;
 
@@ -332,8 +358,8 @@ const App: React.FC = () => {
   };
 
   const finishReception = () => {
-    if (!currentFileMeta) return;
-    const blob = new Blob(receivedChunksRef.current, { type: currentFileMeta.type });
+    if (!fileMetaRef.current) return;
+    const blob = new Blob(receivedChunksRef.current, { type: fileMetaRef.current.type });
     const url = URL.createObjectURL(blob);
     setReceivedFileUrl(url);
     setAppState(AppState.COMPLETED);
@@ -343,9 +369,18 @@ const App: React.FC = () => {
      // Clean up
      if (peerRef.current) peerRef.current.destroy();
      if (scannerRef.current) stopScanner();
+     
      peerRef.current = null;
      connRef.current = null;
      scannerRef.current = null;
+     
+     // Reset Refs
+     fileMetaRef.current = null;
+     filesRef.current = [];
+     receivedChunksRef.current = [];
+     receivedSizeRef.current = 0;
+
+     // Reset State
      setAppState(AppState.HOME);
      setFiles([]);
      setReceivedFileUrl(null);
@@ -355,6 +390,7 @@ const App: React.FC = () => {
      setErrorMsg('');
      setShowQr(false);
      setIsScanning(false);
+     setCurrentFileMeta(null);
   };
 
   // --- RENDERERS ---
