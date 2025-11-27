@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [isPeerReady, setIsPeerReady] = useState(true);
   const [showQr, setShowQr] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   
   // Chat & Transfer State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -106,9 +107,15 @@ const App: React.FC = () => {
               { fps: 20, qrbox: { width: qrBoxSize, height: qrBoxSize }, aspectRatio: 1.0 },
               (decodedText: string) => {
                 if (decodedText && decodedText.length > 3) {
-                  setTargetPeerId(decodedText);
+                  // Vibrate for feedback
                   if (navigator.vibrate) navigator.vibrate(50);
+                  
+                  // Stop scanner
                   stopScanner();
+
+                  // Auto Connect logic
+                  // We pass the decoded text directly to connectToTarget to avoid state update lag
+                  connectToTarget(decodedText);
                 }
               },
               () => {}
@@ -165,6 +172,7 @@ const App: React.FC = () => {
 
       peer.on('error', (err: any) => {
         console.error('Peer error:', err);
+        setIsConnecting(false); // Stop loading if error occurs
         let msg = `连接错误: ${err.type}`;
         if (err.type === 'peer-unavailable') msg = "找不到该房间，请检查口令。";
         setErrorMsg(msg);
@@ -180,8 +188,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleConnection = (conn: any) => {
-    // If we already have a connection, close it? Or allow multi-peer? 
-    // For this simple app, we replace.
     if (connRef.current) {
         connRef.current.close();
     }
@@ -190,8 +196,9 @@ const App: React.FC = () => {
     
     conn.on('open', () => {
       setConnectionStatus('Connected');
+      setIsConnecting(false); // Success!
+      setErrorMsg('');
       setAppState(AppState.CHAT);
-      // Send a system message or just ready state
     });
 
     conn.on('data', (data: any) => {
@@ -200,13 +207,15 @@ const App: React.FC = () => {
 
     conn.on('close', () => {
       setConnectionStatus('Disconnected');
-      // Maybe show a system message in chat
+      setIsConnecting(false);
       addSystemMessage("对方已断开连接");
     });
     
     conn.on('error', (err: any) => {
       console.error("Conn error", err);
+      setIsConnecting(false);
       setConnectionStatus('Disconnected');
+      setErrorMsg("连接中断");
     });
   };
 
@@ -243,9 +252,8 @@ const App: React.FC = () => {
           receivedSizeRef.current = 0;
           setIsTransferring(true);
 
-          // Add a placeholder message for the incoming file
           setMessages(prev => [...prev, {
-            id: meta.id, // Use same ID to update progress
+            id: meta.id, 
             sender: 'peer',
             type: 'file',
             fileMeta: meta,
@@ -254,12 +262,10 @@ const App: React.FC = () => {
             timestamp: Date.now()
           }]);
           
-          // Send ACK to start streaming
           connRef.current.send({ type: 'ACK_FILE_START' });
           break;
         
         case 'ACK_FILE_START':
-           // Peer is ready to receive stream
            if (pendingFileTransferRef.current) {
              streamFile(pendingFileTransferRef.current);
              pendingFileTransferRef.current = null;
@@ -279,8 +285,6 @@ const App: React.FC = () => {
     const total = currentIncomingMetaRef.current.size;
     const progress = Math.round((receivedSizeRef.current / total) * 100);
 
-    // Update UI Progress throttling
-    // For performance, you might want to throttle this update, but React is fast enough for 64KB chunks usually
     setMessages(prev => prev.map(m => {
         if (m.id === currentIncomingMetaRef.current?.id) {
             return { ...m, progress: progress };
@@ -289,7 +293,6 @@ const App: React.FC = () => {
     }));
 
     if (receivedSizeRef.current >= total) {
-        // File Complete
         const blob = new Blob(receivedChunksRef.current, { type: currentIncomingMetaRef.current.type });
         const url = URL.createObjectURL(blob);
         
@@ -300,7 +303,6 @@ const App: React.FC = () => {
             return m;
         }));
 
-        // Reset buffer
         currentIncomingMetaRef.current = null;
         incomingFileIdRef.current = null;
         receivedChunksRef.current = [];
@@ -312,7 +314,7 @@ const App: React.FC = () => {
   const addSystemMessage = (text: string) => {
       setMessages(prev => [...prev, {
           id: Date.now().toString(),
-          sender: 'peer', // loosely use peer or create 'system'
+          sender: 'peer',
           type: 'text',
           content: `[系统消息] ${text}`,
           timestamp: Date.now()
@@ -326,6 +328,7 @@ const App: React.FC = () => {
     setRole('sender');
     setAppState(AppState.SETUP);
     setShowQr(false);
+    setErrorMsg('');
     try {
       const id = await generateConnectionPhrase();
       initializePeer(id);
@@ -339,12 +342,39 @@ const App: React.FC = () => {
   const joinRoom = () => {
     setRole('receiver');
     setAppState(AppState.SETUP);
-    initializePeer(); // Random ID for receiver
+    setErrorMsg('');
+    initializePeer(); 
   };
 
-  const connectToTarget = () => {
-    if (!peerRef.current || !targetPeerId) return;
-    const conn = peerRef.current.connect(targetPeerId);
+  const connectToTarget = (overrideId?: string) => {
+    const target = typeof overrideId === 'string' ? overrideId : targetPeerId;
+    
+    if (!peerRef.current) {
+        setErrorMsg("网络初始化未完成");
+        return;
+    }
+    if (!target) {
+        setErrorMsg("请输入房间口令");
+        return;
+    }
+    
+    // Update state if we used an override ID (from scanner)
+    if (overrideId) setTargetPeerId(overrideId);
+
+    setIsConnecting(true);
+    setErrorMsg('');
+    
+    // Set a timeout to prevent infinite loading state
+    setTimeout(() => {
+        // If still connecting after 10s, likely failed or hung
+        // We can't easily check actual connection state here without refs, 
+        // but this is a safety fallback for UI
+        if (connRef.current && !connRef.current.open) {
+           // Don't force close, just let user know
+        }
+    }, 10000);
+
+    const conn = peerRef.current.connect(target);
     handleConnection(conn);
   };
 
@@ -371,14 +401,12 @@ const App: React.FC = () => {
     }
   };
 
-  // File Sending Logic
   const pendingFileTransferRef = useRef<File | null>(null);
 
   const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0 && connRef.current) {
         const file = e.target.files[0];
         
-        // Don't start another if one is going
         if (isTransferring) {
             alert("请等待当前文件传输完成");
             return;
@@ -392,7 +420,6 @@ const App: React.FC = () => {
             type: file.type
         };
 
-        // 1. Show in UI immediately
         setMessages(prev => [...prev, {
             id: transferId,
             sender: 'me',
@@ -403,14 +430,11 @@ const App: React.FC = () => {
             timestamp: Date.now()
         }]);
 
-        // 2. Send Metadata to Peer
         connRef.current.send({ type: 'FILE_START', payload: meta });
         
-        // 3. Wait for ACK to stream (Handled in handleIncomingData)
         pendingFileTransferRef.current = file;
         setIsTransferring(true);
         
-        // Reset input
         e.target.value = '';
     }
   };
@@ -425,12 +449,10 @@ const App: React.FC = () => {
           
           reader.onload = (evt) => {
               if (evt.target?.readyState === FileReader.DONE && connRef.current) {
-                  connRef.current.send(evt.target.result); // Binary
+                  connRef.current.send(evt.target.result); 
                   offset += chunkSize;
                   
-                  // Update Local UI Progress
                   const progress = Math.min((offset / file.size) * 100, 100);
-                  // Optional: Throttle local updates if needed
                   setMessages(prev => prev.map(m => {
                       if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
                            return { ...m, progress: progress };
@@ -439,7 +461,6 @@ const App: React.FC = () => {
                   }));
 
                   if (offset < file.size) {
-                      // Allow UI thread to breathe
                       setTimeout(() => readSlice(offset), 0);
                   } else {
                       setIsTransferring(false);
@@ -548,22 +569,27 @@ const App: React.FC = () => {
                 <input 
                 type="text" 
                 value={targetPeerId}
-                onChange={(e) => setTargetPeerId(e.target.value)}
+                onChange={(e) => {
+                    setTargetPeerId(e.target.value);
+                    if(errorMsg) setErrorMsg(''); // Clear error on type
+                }}
                 placeholder="例如：neon-cyber-wolf-123"
-                className="flex-1 bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono"
+                className={`flex-1 bg-slate-900 border ${errorMsg ? 'border-red-500' : 'border-slate-700'} text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono transition-colors`}
                 />
                 <button onClick={() => setIsScanning(true)} className="px-4 bg-slate-700 hover:bg-slate-600 rounded-xl text-white transition-colors" title="扫码">
                 <ScanLine size={20} />
                 </button>
             </div>
+            {errorMsg && <p className="text-red-400 text-sm mt-2 flex items-center gap-1"><AlertTriangle size={14} /> {errorMsg}</p>}
            </div>
            <Button 
-            onClick={connectToTarget} 
+            onClick={() => connectToTarget()} 
             variant="primary" 
+            isLoading={isConnecting}
             className="w-full !bg-emerald-600 hover:!bg-emerald-500"
             icon={<ArrowRight size={18} />}
            >
-            连接
+            {isConnecting ? '正在连接...' : '连接'}
            </Button>
         </div>
       )}
@@ -576,6 +602,15 @@ const App: React.FC = () => {
                 <button onClick={stopScanner} className="bg-white/20 p-2 rounded-full text-white"><X /></button>
             </div>
             <div id="reader" className="w-full h-full"></div>
+            
+            {/* Visual Guide */}
+            <div className="absolute pointer-events-none inset-0 flex items-center justify-center z-10">
+                <div className="w-64 h-64 border-2 border-emerald-400 rounded-xl relative opacity-50">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.8)] animate-[scan_2s_linear_infinite]"></div>
+                    <style>{`@keyframes scan { 0% { top: 0 } 50% { top: 100% } 100% { top: 0 } }`}</style>
+                </div>
+            </div>
+            <p className="absolute bottom-10 text-white/70 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm z-20">请将二维码对准框内</p>
         </div>
       )}
     </div>
