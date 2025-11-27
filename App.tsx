@@ -138,7 +138,8 @@ const App: React.FC = () => {
             scannerRef.current = html5QrCode;
             // On mobile, use responsive size logic
             const width = window.innerWidth;
-            const size = Math.min(width * 0.7, 280); 
+            // Adjust size to match the visual box (w-64 = 256px)
+            const size = Math.min(width * 0.7, 250); 
             
             await html5QrCode.start(
               { facingMode: "environment" }, 
@@ -902,7 +903,7 @@ const App: React.FC = () => {
                 0% { transform: translateY(0); opacity: 0; }
                 10% { opacity: 1; }
                 90% { opacity: 1; }
-                100% { transform: translateY(18rem); opacity: 0; }
+                100% { transform: translateY(16rem); opacity: 0; }
               }
             `}</style>
             
@@ -912,7 +913,7 @@ const App: React.FC = () => {
             {/* Dark Overlay Mask with Cutout */}
             <div className="absolute inset-0 pointer-events-none z-10">
                {/* This div creates the dark overlay around the clear center box using massive box-shadow */}
-               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border-2 border-white/20 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.85)]">
+               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-72 md:h-72 border-2 border-white/20 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.85)]">
                   {/* Corner Accents - Cyan/Indigo Gradient */}
                   <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-2xl -mt-0.5 -ml-0.5"></div>
                   <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-2xl -mt-0.5 -mr-0.5"></div>
@@ -939,7 +940,7 @@ const App: React.FC = () => {
             </div>
             
             {/* Bottom Instructions */}
-            <div className="absolute bottom-24 w-full z-20 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-4 duration-500 delay-300">
+            <div className="absolute bottom-12 md:bottom-24 w-full z-20 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-4 duration-500 delay-300">
                 <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-2xl flex flex-col items-center text-center max-w-xs shadow-2xl">
                     <ScanLine size={32} className="text-emerald-400 mb-2" />
                     <h3 className="text-white font-bold text-lg">扫描二维码</h3>
