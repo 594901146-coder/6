@@ -23,7 +23,8 @@ import {
   Activity,
   HelpCircle,
   Terminal,
-  Server
+  Server,
+  RefreshCw
 } from 'lucide-react';
 
 // Main Component
@@ -68,6 +69,7 @@ const App: React.FC = () => {
   const receivedChunksRef = useRef<BlobPart[]>([]);
   const receivedSizeRef = useRef<number>(0);
   const currentIncomingMetaRef = useRef<FileMetadata | null>(null);
+  const fileMetaRef = useRef<FileMetadata | null>(null);
 
   // --- LIFECYCLE & HELPERS ---
 
@@ -114,10 +116,12 @@ const App: React.FC = () => {
               { facingMode: "environment" }, 
               { fps: 15, qrbox: { width: size, height: size }, aspectRatio: 1.0 },
               (decodedText: string) => {
-                if (decodedText && decodedText.length > 5 && decodedText.includes('-')) {
+                if (decodedText && decodedText.length > 3) {
                   if (navigator.vibrate) navigator.vibrate(50);
                   stopScanner();
-                  connectToTarget(decodedText);
+                  // Clean ID from URL if scanned from URL
+                  const cleanId = decodedText.split('/').pop() || decodedText;
+                  connectToTarget(cleanId);
                 }
               },
               () => {} 
@@ -150,7 +154,11 @@ const App: React.FC = () => {
   // --- PEER INITIALIZATION ---
   const initializePeer = useCallback((id?: string) => {
     if (peerRef.current && !peerRef.current.destroyed) {
-        addLog("复用现有 Peer 连接");
+        addLog("检测到现有 Peer 连接，正在重用...");
+        if (peerRef.current.disconnected) {
+            addLog("连接已断开，尝试重连...");
+            peerRef.current.reconnect();
+        }
         return peerRef.current;
     }
     
@@ -164,21 +172,22 @@ const App: React.FC = () => {
 
     try {
       setServerStatus('connecting');
-      addLog("正在初始化 P2P 节点...");
+      addLog("正在初始化 P2P 节点 (SSL/TLS)...");
       
-      const peer = new window.Peer(id, {
+      const peerOptions: any = {
         debug: 1,
+        secure: true, // CRITICAL for Vercel/HTTPS
         config: {
           iceServers: [
-            { urls: 'stun:stun.chat.bilibili.com:3478' },
-            { urls: 'stun:stun.miwifi.com' },
-            { urls: 'stun:stun.qq.com:3478' },
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
+            { urls: 'stun:stun.miwifi.com' },
+            { urls: 'stun:stun.qq.com:3478' }
           ],
           iceCandidatePoolSize: 10,
         }
-      });
+      };
+
+      const peer = new window.Peer(id, peerOptions);
 
       peer.on('open', (myId: string) => {
         addLog(`连接信令服务器成功。ID: ${myId}`);
@@ -195,13 +204,6 @@ const App: React.FC = () => {
       peer.on('disconnected', () => {
         addLog("与信令服务器断开连接");
         setServerStatus('disconnected');
-        // Auto reconnect logic is tricky with PeerJS, sometimes better to let user manually retry
-        // But for short dropouts:
-        setTimeout(() => {
-            if (peer && !peer.destroyed && !peer.disconnected) return;
-             addLog("尝试重连信令服务器...");
-            if (peer && !peer.destroyed) peer.reconnect();
-        }, 2000);
       });
 
       peer.on('close', () => {
@@ -219,7 +221,7 @@ const App: React.FC = () => {
         if (err.type === 'peer-unavailable') msg = "找不到该房间。请确认口令正确且对方在线。";
         else if (err.type === 'network') msg = "网络连接失败，无法连接到信令服务器。";
         else if (err.type === 'server-error') msg = "信令服务器暂时不可用。";
-        else if (err.type === 'unavailable-id') msg = "ID 冲突，请重试。";
+        else if (err.type === 'unavailable-id') msg = "ID 冲突，正在重试...";
         
         setErrorMsg(msg);
       });
@@ -235,7 +237,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleConnection = (conn: any) => {
-    if (connRef.current && connRef.current.open) {
+    // Clean up existing connection if any
+    if (connRef.current) {
         connRef.current.close();
     }
     
@@ -270,31 +273,26 @@ const App: React.FC = () => {
       addLog(`连接错误: ${err}`);
       setIsConnecting(false);
       setConnectionStatus('Disconnected');
-      if (appState === AppState.CHAT) {
-          addSystemMessage("连接发生错误");
-      } else {
-          setErrorMsg("连接中断，请重试");
-      }
+      addSystemMessage("连接发生错误");
     });
-    
-    // Check ICE state if available
-    if (conn.peerConnection) {
-        conn.peerConnection.oniceconnectionstatechange = () => {
-            addLog(`ICE 状态变更: ${conn.peerConnection.iceConnectionState}`);
-        };
-    }
   };
 
   // --- DATA HANDLING ---
-
+  
   const handleIncomingData = (data: any) => {
-    const isBinary = data instanceof ArrayBuffer || data instanceof Uint8Array || data instanceof Blob || (data && data.buffer instanceof ArrayBuffer);
+    // Robust binary check
+    const isBinary = data instanceof ArrayBuffer || 
+                     data instanceof Uint8Array || 
+                     data instanceof Blob || 
+                     (data && data.constructor && data.constructor.name === 'ArrayBuffer') ||
+                     (data && data.buffer instanceof ArrayBuffer);
     
     if (isBinary) {
       handleFileChunk(data);
       return;
     }
 
+    // Handle JSON messages
     if (data && data.type) {
       switch (data.type) {
         case 'TEXT':
@@ -311,10 +309,14 @@ const App: React.FC = () => {
         case 'FILE_START':
           const meta = data.payload as FileMetadata;
           addLog(`开始接收文件: ${meta.name} (${meta.size} bytes)`);
+          
+          // Use Refs to avoid closure staleness
           currentIncomingMetaRef.current = meta;
+          fileMetaRef.current = meta; // Backup
           incomingFileIdRef.current = meta.id;
           receivedChunksRef.current = [];
           receivedSizeRef.current = 0;
+          
           setIsTransferring(true);
 
           setMessages(prev => [...prev, {
@@ -327,12 +329,17 @@ const App: React.FC = () => {
             timestamp: Date.now()
           }]);
           
-          connRef.current.send({ type: 'ACK_FILE_START' });
+          // Ack to start stream
+          setTimeout(() => {
+             if(connRef.current && connRef.current.open) {
+                 connRef.current.send({ type: 'ACK_FILE_START' });
+             }
+          }, 50);
           break;
         
         case 'ACK_FILE_START':
            if (pendingFileTransferRef.current) {
-             addLog("对方已准备好接收文件，开始发送...");
+             addLog("对方确认，开始流式传输...");
              streamFile(pendingFileTransferRef.current);
              pendingFileTransferRef.current = null;
            }
@@ -342,35 +349,44 @@ const App: React.FC = () => {
   };
 
   const handleFileChunk = (data: any) => {
-    if (!currentIncomingMetaRef.current) return;
+    const meta = currentIncomingMetaRef.current || fileMetaRef.current;
+    if (!meta) {
+        addLog("收到数据块但无文件元数据，丢弃");
+        return;
+    }
     
     const chunk = data instanceof Blob ? data : new Blob([data]);
     receivedChunksRef.current.push(chunk);
     receivedSizeRef.current += chunk.size;
 
-    const total = currentIncomingMetaRef.current.size;
+    const total = meta.size;
     const progress = Math.round((receivedSizeRef.current / total) * 100);
 
-    setMessages(prev => prev.map(m => {
-        if (m.id === currentIncomingMetaRef.current?.id) {
-            return { ...m, progress: progress };
-        }
-        return m;
-    }));
+    // Optimize state updates: only update UI every 5% or when done
+    if (progress % 5 === 0 || progress >= 100) {
+        setMessages(prev => prev.map(m => {
+            if (m.id === meta.id) {
+                return { ...m, progress: progress };
+            }
+            return m;
+        }));
+    }
 
     if (receivedSizeRef.current >= total) {
         addLog("文件接收完成，正在合成...");
-        const blob = new Blob(receivedChunksRef.current, { type: currentIncomingMetaRef.current.type });
+        const blob = new Blob(receivedChunksRef.current, { type: meta.type });
         const url = URL.createObjectURL(blob);
         
         setMessages(prev => prev.map(m => {
-            if (m.id === currentIncomingMetaRef.current?.id) {
+            if (m.id === meta.id) {
                 return { ...m, progress: 100, status: 'completed', fileUrl: url };
             }
             return m;
         }));
 
+        // Reset buffers
         currentIncomingMetaRef.current = null;
+        fileMetaRef.current = null;
         incomingFileIdRef.current = null;
         receivedChunksRef.current = [];
         receivedSizeRef.current = 0;
@@ -396,17 +412,23 @@ const App: React.FC = () => {
     setAppState(AppState.SETUP);
     setShowQr(false);
     setErrorMsg('');
-    setLogs([]); // Clear logs for new session
-    addLog("开始创建房间...");
+    setLogs([]); 
+    addLog("创建房间中...");
+    
+    // Destroy previous peer to ensure clean slate
+    if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+    }
+
     try {
       const id = await generateConnectionPhrase();
-      addLog(`生成 ID: ${id}`);
+      addLog(`生成房间 ID: ${id}`);
       initializePeer(id);
     } catch (e: any) {
       addLog(`ID生成失败: ${e.message}`);
-      setErrorMsg(e.message);
-      const fallbackId = `nexus-${Math.floor(Math.random()*10000)}`;
-      addLog(`使用随机ID: ${fallbackId}`);
+      // Fallback
+      const fallbackId = `drop-${Math.floor(Math.random()*10000)}`;
       initializePeer(fallbackId);
     } finally {
       setIsGeneratingId(false);
@@ -418,23 +440,36 @@ const App: React.FC = () => {
     setAppState(AppState.SETUP);
     setErrorMsg('');
     setLogs([]);
-    addLog("准备加入房间...");
-    initializePeer(); 
-  };
-
-  const connectToTarget = (overrideId?: string) => {
-    if (!peerRef.current || peerRef.current.destroyed) {
-        addLog("Peer 实例未就绪，重新初始化...");
-        initializePeer();
+    addLog("初始化接收端...");
+    
+    // Destroy previous peer
+    if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
     }
     
+    // Auto-generate a local ID for receiver immediately
+    // This allows them to come online instantly without waiting for user input
+    const localId = `recv-${Math.floor(Math.random() * 100000)}`;
+    initializePeer(localId); 
+  };
+
+  const reconnectPeer = () => {
+      addLog("手动重置网络连接...");
+      if (peerRef.current) peerRef.current.destroy();
+      setTimeout(() => {
+          if (role === 'sender') startRoom();
+          else joinRoom();
+      }, 500);
+  }
+
+  const connectToTarget = (overrideId?: string) => {
     const rawId = typeof overrideId === 'string' ? overrideId : targetPeerId;
     const target = rawId?.trim().toLowerCase(); 
     
-    if (!peerRef.current?.id) {
-        const msg = "正在初始化网络(获取自身ID)，请稍候...";
-        setErrorMsg(msg);
-        addLog(msg);
+    if (!peerRef.current || !peerRef.current.id) {
+        setErrorMsg("网络未就绪，请等待服务器连接变绿");
+        addLog("尝试连接但本地 Peer 未就绪");
         return;
     }
     if (!target) {
@@ -450,17 +485,23 @@ const App: React.FC = () => {
 
     setIsConnecting(true);
     setErrorMsg('');
-    addLog(`发起连接请求 -> 目标: ${target}`);
+    addLog(`发起连接 -> 目标: ${target}`);
     
-    if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
-    if (connRef.current) connRef.current.close();
+    // Cleanup previous connection attempt
+    if (connRef.current) {
+        connRef.current.close();
+    }
+    if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+    }
 
+    // Set timeout
     connectionTimeoutRef.current = setTimeout(() => {
         if (isConnecting) {
-             const msg = "连接请求超时(15s)。请确认对方在线且网络畅通。";
+             const msg = "连接超时 (15s)。\n1. 请确认口令正确\n2. 确认对方在线且未关闭页面\n3. 尝试点击右上角重置网络";
              setIsConnecting(false);
              setErrorMsg(msg);
-             addLog(msg);
+             addLog("连接超时");
              if (connRef.current) connRef.current.close();
         }
     }, 15000);
@@ -468,14 +509,18 @@ const App: React.FC = () => {
     try {
         const conn = peerRef.current.connect(target, { 
             reliable: true,
-            serialization: 'json'
+            serialization: 'json' // Explicit serialization
         });
+        
+        if (!conn) {
+            throw new Error("连接创建失败(对象为空)");
+        }
+        
         handleConnection(conn);
     } catch (e: any) {
         console.error("Connect exception:", e);
-        const msg = "连接请求异常: " + e.message;
-        setErrorMsg(msg);
-        addLog(msg);
+        setErrorMsg("连接请求异常: " + e.message);
+        addLog("连接异常: " + e.message);
         setIsConnecting(false);
     }
   };
@@ -540,29 +585,40 @@ const App: React.FC = () => {
   };
 
   const streamFile = (file: File) => {
-      const chunkSize = 32 * 1024; 
+      const chunkSize = 16 * 1024; // 16KB chunks are safer for congestion control
       let offset = 0;
       
       const readSlice = (o: number) => {
+          if (!connRef.current || !connRef.current.open) {
+              addLog("传输中断：连接已关闭");
+              setIsTransferring(false);
+              return;
+          }
+
           const slice = file.slice(o, o + chunkSize);
           const reader = new FileReader();
           
           reader.onload = (evt) => {
-              if (evt.target?.readyState === FileReader.DONE && connRef.current) {
+              if (evt.target?.readyState === FileReader.DONE) {
                   try {
                     connRef.current.send(evt.target.result); 
                     offset += chunkSize;
                     
                     const progress = Math.min((offset / file.size) * 100, 100);
-                    setMessages(prev => prev.map(m => {
-                        if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
-                             return { ...m, progress: progress };
-                        }
-                        return m;
-                    }));
+                    
+                    // Throttle UI updates
+                    if (progress % 5 === 0 || progress >= 100) {
+                        setMessages(prev => prev.map(m => {
+                            if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
+                                return { ...m, progress: progress };
+                            }
+                            return m;
+                        }));
+                    }
 
                     if (offset < file.size) {
-                        requestAnimationFrame(() => readSlice(offset));
+                        // Use requestAnimationFrame for smoother UI, but setTimeout 0 is faster for throughput
+                        setTimeout(() => readSlice(offset), 0);
                     } else {
                         addLog("文件发送完成");
                         setIsTransferring(false);
@@ -597,7 +653,7 @@ const App: React.FC = () => {
   const renderHome = () => (
     <div className="flex flex-col md:flex-row gap-6 max-w-4xl w-full animate-in fade-in zoom-in duration-500">
       <div 
-        onClick={() => { if(serverStatus !== 'connected' && serverStatus !== 'connecting') initializePeer(); startRoom(); }}
+        onClick={() => { startRoom(); }}
         className="flex-1 group cursor-pointer"
       >
         <div className="glass-panel h-64 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-indigo-500 bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl shadow-indigo-500/10 hover:shadow-indigo-500/20 transition-all hover:scale-[1.02]">
@@ -605,12 +661,12 @@ const App: React.FC = () => {
             {isGeneratingId ? <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /> : <Wifi className="w-8 h-8 text-indigo-400" />}
           </div>
           <h2 className="text-2xl font-bold mb-2">我要发送</h2>
-          <p className="text-slate-400 text-center text-sm">创建房间，生成口令或二维码</p>
+          <p className="text-slate-400 text-center text-sm">创建房间，生成口令</p>
         </div>
       </div>
 
       <div 
-        onClick={() => { if(serverStatus !== 'connected' && serverStatus !== 'connecting') initializePeer(); joinRoom(); }}
+        onClick={() => { joinRoom(); }}
         className="flex-1 group cursor-pointer"
       >
         <div className="glass-panel h-64 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-emerald-500 bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl shadow-emerald-500/10 hover:shadow-emerald-500/20 transition-all hover:scale-[1.02]">
@@ -651,9 +707,13 @@ const App: React.FC = () => {
             <div className="absolute inset-0 bg-indigo-500/5 z-0"></div>
             <p className="text-xs text-slate-400 mb-2 uppercase tracking-wider font-semibold z-10 relative">您的房间口令</p>
             <div className="flex items-center justify-center gap-2 mb-2 z-10 relative">
-                <span className="text-3xl font-mono font-bold text-white tracking-tight break-all select-all">
-                    {peerId || '生成中...'}
-                </span>
+                {isGeneratingId ? (
+                    <Loader2 className="animate-spin text-white" />
+                ) : (
+                    <span className="text-3xl font-mono font-bold text-white tracking-tight break-all select-all">
+                        {peerId || '...'}
+                    </span>
+                )}
             </div>
             {peerId && (
                 <div className="flex justify-center gap-3 z-10 relative mt-4">
@@ -692,11 +752,12 @@ const App: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
+           {/* Connection readiness check */}
            {!peerId ? (
              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-400 bg-slate-900/30 rounded-xl border border-dashed border-slate-700">
                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
                <p className="animate-pulse text-sm">正在连接信令服务器...</p>
-               <div className="text-xs text-slate-500">连接耗时较长属于正常现象</div>
+               <div className="text-xs text-slate-500">连接建立后方可输入</div>
              </div>
            ) : (
              <>
@@ -710,7 +771,7 @@ const App: React.FC = () => {
                           setTargetPeerId(e.target.value);
                           if(errorMsg) setErrorMsg(''); 
                       }}
-                      placeholder="例如：neon-cyber-wolf-123"
+                      placeholder="例如：neon-wolf-123"
                       className={`flex-1 bg-slate-900 border ${errorMsg ? 'border-red-500' : 'border-slate-700'} text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono transition-colors`}
                       />
                       <button onClick={() => setIsScanning(true)} className="px-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-200 transition-colors" title="扫码">
@@ -725,7 +786,10 @@ const App: React.FC = () => {
                         <div className="text-red-300 text-sm whitespace-pre-wrap">
                             <p className="font-bold mb-1">连接失败</p>
                             {errorMsg}
-                            <button onClick={() => setShowLogs(true)} className="block mt-2 text-red-200 underline text-xs">查看技术日志</button>
+                            <div className="mt-2 flex gap-3">
+                                <button onClick={() => setShowLogs(true)} className="text-red-200 underline text-xs">查看日志</button>
+                                <button onClick={reconnectPeer} className="text-red-200 underline text-xs">重置网络</button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -767,10 +831,6 @@ const App: React.FC = () => {
             <div className="absolute pointer-events-none inset-0 flex items-center justify-center z-10">
                 <div className="w-64 h-64 border-2 border-emerald-400/50 rounded-2xl relative">
                     <div className="absolute top-0 left-0 w-full h-0.5 bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,1)] animate-[scan_2.5s_linear_infinite]"></div>
-                    <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-emerald-500 rounded-tl-xl"></div>
-                    <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-emerald-500 rounded-tr-xl"></div>
-                    <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-emerald-500 rounded-bl-xl"></div>
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-emerald-500 rounded-br-xl"></div>
                 </div>
             </div>
             <div className="absolute bottom-12 text-center w-full z-20">
@@ -926,9 +986,18 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center relative overflow-hidden bg-slate-950 font-sans selection:bg-indigo-500/30">
        {/* Connection Status Indicator (Global) */}
-       <div className="absolute top-4 right-4 z-50 flex gap-2">
-            {serverStatus === 'connecting' && <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg"><Loader2 size={12} className="animate-spin"/> 连接中...</div>}
-            {serverStatus === 'disconnected' && appState !== AppState.HOME && <div className="bg-red-500/20 border border-red-500/30 text-red-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg"><Activity size={12}/> 离线</div>}
+       <div className="absolute top-4 right-4 z-50 flex gap-2 items-center">
+            {serverStatus === 'connecting' && <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg"><Loader2 size={12} className="animate-spin"/> 服务器连接中...</div>}
+            {serverStatus === 'disconnected' && appState !== AppState.HOME && (
+                <button onClick={reconnectPeer} className="bg-red-500/20 border border-red-500/30 text-red-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg hover:bg-red-500/30 transition-colors">
+                    <Activity size={12}/> 服务器离线 (点击重连)
+                </button>
+            )}
+            {serverStatus === 'connected' && appState !== AppState.HOME && (
+                 <div className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> 服务器已连接
+                 </div>
+            )}
        </div>
 
        {/* HELP MODAL */}
