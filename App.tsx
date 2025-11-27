@@ -24,7 +24,9 @@ import {
   HelpCircle,
   Terminal,
   Server,
-  RefreshCw
+  RefreshCw,
+  Sparkles,
+  Lock
 } from 'lucide-react';
 
 // Main Component
@@ -692,144 +694,163 @@ const App: React.FC = () => {
   // --- RENDERERS ---
 
   const renderHome = () => (
-    <div className="flex flex-col md:flex-row gap-6 max-w-4xl w-full animate-in fade-in zoom-in duration-500">
+    <div className="flex flex-col md:flex-row gap-8 max-w-4xl w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
       <div 
         onClick={() => { startRoom(); }}
-        className="flex-1 group cursor-pointer"
+        className="flex-1 group cursor-pointer relative"
       >
-        <div className="glass-panel h-64 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-indigo-500 bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl shadow-indigo-500/10 hover:shadow-indigo-500/20 transition-all hover:scale-[1.02]">
-          <div className="w-16 h-16 rounded-full bg-indigo-500/20 flex items-center justify-center mb-6 group-hover:bg-indigo-500/30 transition-colors">
-            {isGeneratingId ? <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /> : <Wifi className="w-8 h-8 text-indigo-400" />}
+        <div className="absolute inset-0 bg-indigo-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
+        <div className="glass-panel h-72 rounded-3xl p-8 flex flex-col items-center justify-center border border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 hover:border-indigo-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]">
+          <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6 group-hover:bg-indigo-600/20 group-hover:scale-110 transition-all duration-300 border border-white/10 group-hover:border-indigo-500/50">
+            {isGeneratingId ? <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" /> : <Wifi className="w-10 h-10 text-slate-300 group-hover:text-indigo-400 transition-colors" />}
           </div>
-          <h2 className="text-2xl font-bold mb-2">我要发送</h2>
-          <p className="text-slate-400 text-center text-sm">创建房间，生成口令</p>
+          <h2 className="text-3xl font-bold mb-3 text-white group-hover:text-indigo-300 transition-colors">我要发送</h2>
+          <p className="text-slate-400 text-center font-medium group-hover:text-slate-300">创建加密房间 • 生成口令</p>
+          <div className="mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+             <span className="text-indigo-400 flex items-center gap-1 text-sm font-bold">开始 <ArrowRight size={14}/></span>
+          </div>
         </div>
       </div>
 
       <div 
         onClick={() => { joinRoom(); }}
-        className="flex-1 group cursor-pointer"
+        className="flex-1 group cursor-pointer relative"
       >
-        <div className="glass-panel h-64 rounded-2xl p-8 flex flex-col items-center justify-center border-t-4 border-emerald-500 bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl shadow-emerald-500/10 hover:shadow-emerald-500/20 transition-all hover:scale-[1.02]">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6 group-hover:bg-emerald-500/30 transition-colors">
-            <Download className="w-8 h-8 text-emerald-400" />
+        <div className="absolute inset-0 bg-emerald-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
+        <div className="glass-panel h-72 rounded-3xl p-8 flex flex-col items-center justify-center border border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 hover:border-emerald-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+          <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6 group-hover:bg-emerald-600/20 group-hover:scale-110 transition-all duration-300 border border-white/10 group-hover:border-emerald-500/50">
+            <Download className="w-10 h-10 text-slate-300 group-hover:text-emerald-400 transition-colors" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">我要接收</h2>
-          <p className="text-slate-400 text-center text-sm">输入口令或扫码连接</p>
+          <h2 className="text-3xl font-bold mb-3 text-white group-hover:text-emerald-300 transition-colors">我要接收</h2>
+          <p className="text-slate-400 text-center font-medium group-hover:text-slate-300">输入口令 • 扫码连接</p>
+          <div className="mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+             <span className="text-emerald-400 flex items-center gap-1 text-sm font-bold">加入 <ArrowRight size={14}/></span>
+          </div>
         </div>
       </div>
     </div>
   );
 
   const renderSetup = () => (
-    <div className="glass-panel p-8 rounded-2xl max-w-lg w-full animate-in slide-in-from-bottom-4 duration-300 relative">
+    <div className="glass-panel p-8 rounded-3xl max-w-lg w-full animate-in slide-in-from-bottom-8 duration-500 relative border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] bg-slate-900/60 backdrop-blur-2xl">
       <div className="absolute top-4 right-4 flex gap-2">
-           <button onClick={() => setShowLogs(!showLogs)} className={`p-1 rounded hover:bg-slate-700 ${showLogs ? 'text-indigo-400' : 'text-slate-500'}`} title="显示/隐藏连接日志">
-               <Terminal size={16} />
+           <button onClick={() => setShowLogs(!showLogs)} className={`p-2 rounded-full hover:bg-slate-700/50 transition-colors ${showLogs ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500'}`} title="显示/隐藏连接日志">
+               <Terminal size={18} />
            </button>
-           <button onClick={() => setShowHelp(true)} className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-indigo-400" title="为什么需要连接服务器？">
-               <HelpCircle size={16} />
+           <button onClick={() => setShowHelp(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors text-slate-500 hover:text-indigo-400" title="为什么需要连接服务器？">
+               <HelpCircle size={18} />
            </button>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          {role === 'sender' ? <Wifi className="text-indigo-400" /> : <Download className="text-emerald-400" />}
-          {role === 'sender' ? '等待连接' : '加入传输'}
-        </h2>
-        <button onClick={exitChat} className="text-slate-500 hover:text-white transition-colors">
-            <X size={24} />
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-4">
+             <div className={`p-3 rounded-2xl ${role === 'sender' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                {role === 'sender' ? <Wifi size={24} /> : <Download size={24} />}
+             </div>
+             <div>
+                 <h2 className="text-2xl font-bold text-white leading-none mb-1">{role === 'sender' ? '等待连接' : '加入传输'}</h2>
+                 <p className="text-sm text-slate-400">{role === 'sender' ? '分享下方口令' : '连接到发送方'}</p>
+             </div>
+        </div>
+        <button onClick={exitChat} className="text-slate-500 hover:text-white transition-colors bg-slate-800/50 p-2 rounded-full hover:bg-red-500/20 hover:text-red-400">
+            <X size={20} />
         </button>
       </div>
 
       {role === 'sender' ? (
         <div className="space-y-6">
-           <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-indigo-500/5 z-0"></div>
-            <p className="text-xs text-slate-400 mb-2 uppercase tracking-wider font-semibold z-10 relative">您的房间口令</p>
-            <div className="flex items-center justify-center gap-2 mb-2 z-10 relative">
+           <div className="bg-slate-950/50 p-6 rounded-2xl border border-dashed border-slate-700 text-center relative group">
+            <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+            <p className="text-xs text-indigo-400 mb-3 uppercase tracking-widest font-bold">ROOM CODE</p>
+            <div className="flex items-center justify-center gap-2 mb-4">
                 {isGeneratingId ? (
-                    <Loader2 className="animate-spin text-white" />
+                    <Loader2 className="animate-spin text-white w-8 h-8" />
                 ) : (
-                    <span className="text-3xl font-mono font-bold text-white tracking-tight break-all select-all">
+                    <span className="text-4xl font-mono font-bold text-white tracking-tight drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] select-all">
                         {peerId || '...'}
                     </span>
                 )}
             </div>
             {peerId && (
-                <div className="flex justify-center gap-3 z-10 relative mt-4">
+                <div className="flex justify-center gap-3">
                     <button 
                         onClick={() => {
                             navigator.clipboard.writeText(peerId);
                             const btn = document.getElementById('copy-btn');
                             if(btn) { btn.innerHTML = '已复制'; setTimeout(() => btn.innerHTML = '复制口令', 1000); }
                         }} 
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm transition-colors"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
                     >
                         <Copy size={16} /> <span id="copy-btn">复制口令</span>
                     </button>
                     <button 
                         onClick={() => setShowQr(!showQr)} 
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${showQr ? 'bg-indigo-600 text-white' : 'bg-slate-800 hover:bg-slate-700'}`}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all border ${showQr ? 'bg-white text-slate-900 border-white' : 'bg-transparent text-slate-300 border-slate-600 hover:border-slate-400 hover:text-white'}`}
                     >
                         <QrCode size={16} /> 二维码
                     </button>
                 </div>
             )}
-            {showQr && peerId && (
-                <div className="mt-6 flex flex-col items-center animate-in fade-in zoom-in duration-300">
-                    <div className="bg-white p-3 rounded-xl shadow-lg">
-                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-40 h-40 mix-blend-multiply" />
+            
+            <div className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${showQr ? 'max-h-64 mt-6' : 'max-h-0'}`}>
+                <div className="flex flex-col items-center">
+                    <div className="bg-white p-3 rounded-2xl shadow-xl">
+                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-40 h-40 mix-blend-multiply" />
                     </div>
-                    <p className="text-xs text-slate-500 mt-2">使用另一台设备的摄像头扫描</p>
                 </div>
-            )}
+            </div>
            </div>
            
-           <div className="flex items-center justify-center gap-3 py-2 text-slate-400">
-               <Loader2 className="animate-spin text-indigo-500 w-5 h-5" />
-               <span className="text-sm">正在等待接收方加入...</span>
+           <div className="flex items-center justify-center gap-3 py-2 text-slate-400 bg-slate-800/30 rounded-full px-4 w-fit mx-auto border border-slate-700/50">
+               <div className="relative">
+                 <div className="w-3 h-3 bg-indigo-500 rounded-full animate-ping absolute opacity-75"></div>
+                 <div className="w-3 h-3 bg-indigo-500 rounded-full relative"></div>
+               </div>
+               <span className="text-sm font-medium">正在等待接收方加入...</span>
            </div>
         </div>
       ) : (
         <div className="space-y-6">
            {/* Connection readiness check */}
            {!peerId ? (
-             <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-400 bg-slate-900/30 rounded-xl border border-dashed border-slate-700">
-               <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-               <p className="animate-pulse text-sm">正在连接信令服务器...</p>
-               <div className="text-xs text-slate-500">连接建立后方可输入</div>
+             <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-400 bg-slate-950/30 rounded-2xl border border-dashed border-slate-700/50">
+               <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+               <p className="animate-pulse font-medium">正在初始化安全连接...</p>
              </div>
            ) : (
              <>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">输入发送方的口令</label>
-                  <div className="flex gap-2">
-                      <input 
-                      type="text" 
-                      value={targetPeerId}
-                      onChange={(e) => {
-                          setTargetPeerId(e.target.value);
-                          if(errorMsg) setErrorMsg(''); 
-                      }}
-                      placeholder="例如：neon-wolf-123"
-                      className={`flex-1 bg-slate-900 border ${errorMsg ? 'border-red-500' : 'border-slate-700'} text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono transition-colors`}
-                      />
-                      <button onClick={() => setIsScanning(true)} className="px-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-200 transition-colors" title="扫码">
-                      <ScanLine size={22} />
-                      </button>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500">
+                    <Lock size={18} />
                   </div>
+                  <input 
+                    type="text" 
+                    value={targetPeerId}
+                    onChange={(e) => {
+                        setTargetPeerId(e.target.value);
+                        if(errorMsg) setErrorMsg(''); 
+                    }}
+                    placeholder="输入房间口令 (例如：neon-wolf-123)"
+                    className={`w-full bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-700 focus:border-emerald-500'} text-white pl-12 pr-14 py-4 rounded-xl focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-lg transition-all shadow-inner`}
+                  />
+                  <button 
+                    onClick={() => setIsScanning(true)} 
+                    className="absolute inset-y-2 right-2 px-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white transition-colors flex items-center justify-center" 
+                    title="扫码"
+                  >
+                    <ScanLine size={20} />
+                  </button>
                 </div>
                 
                 {errorMsg && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-start gap-2 animate-in fade-in">
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
                         <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                        <div className="text-red-300 text-sm whitespace-pre-wrap">
-                            <p className="font-bold mb-1">连接失败</p>
+                        <div className="text-red-200 text-sm">
+                            <p className="font-bold text-red-100 mb-1">连接受阻</p>
                             {errorMsg}
-                            <div className="mt-2 flex gap-3">
-                                <button onClick={() => setShowLogs(true)} className="text-red-200 underline text-xs">查看日志</button>
-                                <button onClick={reconnectPeer} className="text-red-200 underline text-xs">重置网络</button>
+                            <div className="mt-3 flex gap-4">
+                                <button onClick={() => setShowLogs(true)} className="text-white underline decoration-red-400/50 underline-offset-2 text-xs hover:decoration-red-400">查看日志</button>
+                                <button onClick={reconnectPeer} className="text-white underline decoration-red-400/50 underline-offset-2 text-xs hover:decoration-red-400">重置网络</button>
                             </div>
                         </div>
                     </div>
@@ -839,10 +860,10 @@ const App: React.FC = () => {
                   onClick={() => connectToTarget()} 
                   variant="primary" 
                   isLoading={isConnecting}
-                  className="w-full !bg-emerald-600 hover:!bg-emerald-500 shadow-emerald-500/20"
-                  icon={<ArrowRight size={18} />}
+                  className="w-full !bg-emerald-600 hover:!bg-emerald-500 shadow-lg shadow-emerald-500/25 !py-4 !text-lg !rounded-xl"
+                  icon={<ArrowRight size={20} />}
                 >
-                  {isConnecting ? `正在连接 ${retryCount > 0 ? `(重试 ${retryCount})` : ''}...` : '立即连接'}
+                  {isConnecting ? `正在建立连接 ${retryCount > 0 ? `(${retryCount}/3)` : ''}...` : '立即连接'}
                 </Button>
              </>
            )}
@@ -851,31 +872,37 @@ const App: React.FC = () => {
 
       {/* DEBUG LOGS OVERLAY */}
       {showLogs && (
-        <div className="mt-4 bg-slate-950 p-3 rounded-lg border border-slate-800 text-[10px] font-mono text-green-400/80 h-32 overflow-y-auto">
-            <div className="flex justify-between sticky top-0 bg-slate-950 pb-1 mb-1 border-b border-slate-800">
-                <span className="font-bold text-slate-400">连接日志 (Diagnostics)</span>
-                <span className="cursor-pointer text-slate-500 hover:text-white" onClick={() => setLogs([])}>清空</span>
+        <div className="mt-6 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-slate-800 text-[10px] font-mono text-green-400/90 h-40 overflow-y-auto shadow-inner custom-scrollbar">
+            <div className="flex justify-between sticky top-0 bg-black/0 pb-2 mb-2 border-b border-white/10">
+                <span className="font-bold text-slate-300 flex items-center gap-2"><Activity size={12}/> 系统日志</span>
+                <span className="cursor-pointer text-slate-500 hover:text-white transition-colors" onClick={() => setLogs([])}>清空</span>
             </div>
-            {logs.length === 0 ? <span className="opacity-50">暂无日志...</span> : logs.map((l, i) => <div key={i}>{l}</div>)}
+            {logs.length === 0 ? <span className="opacity-30 italic">等待系统事件...</span> : logs.map((l, i) => <div key={i} className="mb-1 border-b border-white/5 pb-1 last:border-0">{l}</div>)}
         </div>
       )}
 
       {/* QR SCANNER FULLSCREEN OVERLAY */}
       {isScanning && (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center">
-            <div className="absolute top-0 w-full p-6 flex justify-between z-20 bg-gradient-to-b from-black/80 to-transparent">
-                <div className="text-white font-bold flex gap-2 items-center"><Camera size={20} /> 扫描二维码</div>
-                <button onClick={stopScanner} className="bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition-colors"><X size={24} /></button>
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
+            <div className="absolute top-0 w-full p-6 flex justify-between z-20 bg-gradient-to-b from-black/90 to-transparent">
+                <div className="text-white font-bold flex gap-3 items-center text-lg"><Camera size={24} className="text-emerald-500" /> 扫描二维码</div>
+                <button onClick={stopScanner} className="bg-white/10 hover:bg-white/20 p-3 rounded-full text-white transition-all backdrop-blur-md"><X size={24} /></button>
             </div>
-            <div id="reader" className="w-full h-full object-cover"></div>
+            <div id="reader" className="w-full h-full object-cover opacity-80"></div>
             
             <div className="absolute pointer-events-none inset-0 flex items-center justify-center z-10">
-                <div className="w-64 h-64 border-2 border-emerald-400/50 rounded-2xl relative">
-                    <div className="absolute top-0 left-0 w-full h-0.5 bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,1)] animate-[scan_2.5s_linear_infinite]"></div>
+                <div className="w-72 h-72 border-[3px] border-emerald-400/50 rounded-3xl relative shadow-[0_0_100px_rgba(16,185,129,0.3)]">
+                    <div className="absolute inset-0 border-[3px] border-white/20 rounded-3xl"></div>
+                    <div className="absolute top-4 left-4 right-4 h-0.5 bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,1)] animate-[scan_2s_linear_infinite]"></div>
+                    {/* Corner accents */}
+                    <div className="absolute top-[-3px] left-[-3px] w-6 h-6 border-t-[3px] border-l-[3px] border-emerald-400 rounded-tl-3xl"></div>
+                    <div className="absolute top-[-3px] right-[-3px] w-6 h-6 border-t-[3px] border-r-[3px] border-emerald-400 rounded-tr-3xl"></div>
+                    <div className="absolute bottom-[-3px] left-[-3px] w-6 h-6 border-b-[3px] border-l-[3px] border-emerald-400 rounded-bl-3xl"></div>
+                    <div className="absolute bottom-[-3px] right-[-3px] w-6 h-6 border-b-[3px] border-r-[3px] border-emerald-400 rounded-br-3xl"></div>
                 </div>
             </div>
-            <div className="absolute bottom-12 text-center w-full z-20">
-                <p className="text-white/90 bg-black/60 inline-block px-6 py-2 rounded-full backdrop-blur-md border border-white/10">请将发送方的二维码对准框内</p>
+            <div className="absolute bottom-20 text-center w-full z-20">
+                <p className="text-white font-medium bg-black/60 inline-block px-8 py-3 rounded-full backdrop-blur-xl border border-white/10 shadow-2xl">请将二维码对准扫描框</p>
             </div>
         </div>
       )}
@@ -883,87 +910,101 @@ const App: React.FC = () => {
   );
 
   const renderChat = () => (
-    <div className="w-full max-w-2xl h-[85vh] flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl shadow-black/50 animate-in fade-in zoom-in duration-300 border border-slate-700">
+    <div className="w-full max-w-3xl h-[85vh] flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl shadow-black/50 animate-in fade-in zoom-in-95 duration-500 border border-white/10">
       {/* CHAT HEADER */}
-      <div className="p-4 bg-slate-900/90 border-b border-slate-700 flex justify-between items-center backdrop-blur-md">
-         <div className="flex items-center gap-3">
-             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-lg ${role === 'sender' ? 'bg-indigo-500 shadow-indigo-500/20' : 'bg-emerald-500 shadow-emerald-500/20'}`}>
-                 {role === 'sender' ? <Wifi size={20} /> : <Download size={20} />}
+      <div className="p-5 bg-slate-900/80 border-b border-white/5 flex justify-between items-center backdrop-blur-xl relative z-20">
+         <div className="flex items-center gap-4">
+             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg ${role === 'sender' ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-indigo-500/20' : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20'}`}>
+                 {role === 'sender' ? <Wifi size={24} /> : <Download size={24} />}
              </div>
              <div>
-                 <h3 className="font-bold text-white leading-tight">加密传输通道</h3>
-                 <div className="flex items-center gap-1.5">
-                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                     <span className="text-xs text-emerald-400 font-medium">连接稳定 • {connectionStatus}</span>
+                 <h3 className="font-bold text-white text-lg tracking-tight">加密传输通道</h3>
+                 <div className="flex items-center gap-2 mt-0.5">
+                     <span className={`relative flex h-2.5 w-2.5`}>
+                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                     </span>
+                     <span className="text-xs text-emerald-400 font-medium tracking-wide uppercase">Secure Connection</span>
                  </div>
              </div>
          </div>
-         <button onClick={exitChat} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-red-400 transition-colors" title="断开连接">
+         <button onClick={exitChat} className="p-3 hover:bg-white/5 rounded-full text-slate-400 hover:text-red-400 transition-all border border-transparent hover:border-white/5" title="断开连接">
              <X size={20} />
          </button>
       </div>
 
       {/* CHAT MESSAGES AREA */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth bg-slate-950/30">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-transparent relative">
+          {/* Subtle pattern in chat background */}
+          <div className="absolute inset-0 opacity-5 pointer-events-none" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+
           {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full opacity-60">
-                  <ShieldCheck className="w-16 h-16 text-slate-600 mb-4" />
-                  <p className="text-slate-400 font-medium">连接已建立</p>
-                  <p className="text-slate-500 text-sm mt-1">所有数据均通过 P2P 加密直连</p>
+              <div className="flex flex-col items-center justify-center h-full opacity-50 animate-in fade-in duration-1000">
+                  <div className="w-24 h-24 bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-white/5">
+                    <ShieldCheck className="w-12 h-12 text-slate-500" />
+                  </div>
+                  <p className="text-slate-300 font-medium text-lg">通道已建立</p>
+                  <p className="text-slate-500 text-sm mt-2 max-w-xs text-center">所有数据通过 WebRTC P2P 协议端到端加密传输，不经过第三方服务器。</p>
               </div>
           )}
           
           {messages.map((msg) => {
               const isMe = msg.sender === 'me';
               return (
-                  <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
-                      <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 shadow-md ${
+                  <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-4 duration-300 group`}>
+                      <div className={`max-w-[85%] sm:max-w-[70%] shadow-lg relative ${
                           isMe 
-                          ? 'bg-indigo-600 text-white rounded-br-sm' 
-                          : 'bg-slate-700 text-slate-100 rounded-bl-sm'
+                          ? 'rounded-2xl rounded-tr-sm bg-gradient-to-br from-indigo-600 to-violet-600 text-white border border-indigo-400/20' 
+                          : 'rounded-2xl rounded-tl-sm bg-slate-800 text-slate-100 border border-slate-700'
                       }`}>
-                          {/* Text Content */}
-                          {msg.type === 'text' && <p className="break-words leading-relaxed whitespace-pre-wrap">{msg.content}</p>}
+                          {/* Message Content Container */}
+                          <div className="p-4">
+                              {/* Text Content */}
+                              {msg.type === 'text' && <p className="break-words leading-relaxed whitespace-pre-wrap text-[15px]">{msg.content}</p>}
 
-                          {/* File Content */}
-                          {msg.type === 'file' && (
-                              <div className="w-full sm:w-64">
-                                  <div className="flex items-center gap-3 mb-3">
-                                      <div className={`p-2.5 rounded-xl ${isMe ? 'bg-indigo-500' : 'bg-slate-600'}`}>
-                                          <FileIcon size={24} className="text-white" />
-                                      </div>
-                                      <div className="overflow-hidden min-w-0">
-                                          <p className="font-medium truncate text-sm" title={msg.fileMeta?.name}>{msg.fileMeta?.name}</p>
-                                          <p className="text-xs opacity-70">
-                                              {((msg.fileMeta?.size || 0) / (1024 * 1024)).toFixed(2)} MB
-                                          </p>
-                                      </div>
-                                  </div>
-                                  
-                                  {/* Progress or Actions */}
-                                  {msg.status === 'completed' ? (
-                                      isMe ? (
-                                        <div className="text-xs flex items-center justify-end gap-1 opacity-80 font-medium bg-black/10 py-1 px-2 rounded-md"><CheckCircle size={12} /> 发送成功</div>
-                                      ) : (
-                                        <a href={msg.fileUrl} download={msg.fileMeta?.name} className="block w-full">
-                                            <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
-                                                <Download size={16} /> 下载文件
-                                            </button>
-                                        </a>
-                                      )
-                                  ) : (
-                                      <div className="space-y-1.5 bg-black/10 p-2 rounded-lg">
-                                          <div className="flex justify-between text-xs font-medium">
-                                              <span className="opacity-80">{msg.sender === 'me' ? '正在发送...' : '正在接收...'}</span>
-                                              <span>{msg.progress}%</span>
+                              {/* File Content */}
+                              {msg.type === 'file' && (
+                                  <div className="w-full sm:w-72">
+                                      <div className="flex items-center gap-4 mb-4">
+                                          <div className={`p-3.5 rounded-xl shrink-0 ${isMe ? 'bg-white/20' : 'bg-slate-700 border border-slate-600'}`}>
+                                              <FileIcon size={28} className={isMe ? "text-white" : "text-emerald-400"} />
                                           </div>
-                                          <ProgressBar progress={msg.progress || 0} heightClass="h-2" colorClass={isMe ? "bg-white/90" : "bg-emerald-500"} />
+                                          <div className="overflow-hidden min-w-0 flex-1">
+                                              <p className="font-bold truncate text-sm mb-1" title={msg.fileMeta?.name}>{msg.fileMeta?.name}</p>
+                                              <p className="text-xs opacity-70 font-mono">
+                                                  {((msg.fileMeta?.size || 0) / (1024 * 1024)).toFixed(2)} MB
+                                              </p>
+                                          </div>
                                       </div>
-                                  )}
-                              </div>
-                          )}
-                          
-                          <div className={`text-[10px] mt-1 text-right font-medium opacity-60`}>
+                                      
+                                      {/* Progress or Actions */}
+                                      {msg.status === 'completed' ? (
+                                          isMe ? (
+                                            <div className="text-xs flex items-center justify-end gap-1.5 opacity-90 font-medium bg-black/20 py-1.5 px-3 rounded-lg w-fit ml-auto border border-white/10">
+                                                <CheckCircle size={14} /> 发送成功
+                                            </div>
+                                          ) : (
+                                            <a href={msg.fileUrl} download={msg.fileMeta?.name} className="block w-full">
+                                                <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:scale-[1.02] border-t border-white/10">
+                                                    <Download size={18} /> 下载文件
+                                                </button>
+                                            </a>
+                                          )
+                                      ) : (
+                                          <div className="space-y-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                                              <div className="flex justify-between text-xs font-bold tracking-wide">
+                                                  <span className="opacity-70">{msg.sender === 'me' ? 'UPLOADING...' : 'DOWNLOADING...'}</span>
+                                                  <span>{msg.progress}%</span>
+                                              </div>
+                                              <ProgressBar progress={msg.progress || 0} heightClass="h-1.5" colorClass={isMe ? "bg-white" : "bg-emerald-400"} />
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+
+                          {/* Timestamp */}
+                          <div className={`text-[10px] absolute -bottom-5 ${isMe ? 'right-1' : 'left-1'} font-medium opacity-0 group-hover:opacity-60 transition-opacity text-slate-500`}>
                               {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </div>
                       </div>
@@ -974,8 +1015,8 @@ const App: React.FC = () => {
       </div>
 
       {/* INPUT AREA */}
-      <div className="p-4 bg-slate-900/80 border-t border-slate-700 backdrop-blur-md z-10">
-          <div className="flex items-end gap-2 bg-slate-800/50 p-2 rounded-xl border border-slate-700/50 focus-within:border-indigo-500/50 focus-within:bg-slate-800 transition-all">
+      <div className="p-5 bg-slate-900/90 border-t border-white/5 backdrop-blur-xl z-20">
+          <div className="flex items-end gap-3 relative">
               <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -986,36 +1027,47 @@ const App: React.FC = () => {
               <button 
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isTransferring} 
-                  className={`p-2.5 rounded-lg transition-colors shrink-0 mb-0.5 ${isTransferring ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-700 text-slate-400 hover:text-white bg-slate-700/30'}`}
+                  className={`p-3.5 rounded-2xl transition-all shrink-0 shadow-lg ${isTransferring ? 'opacity-30 cursor-not-allowed bg-slate-800' : 'hover:bg-slate-700 text-slate-400 hover:text-indigo-400 bg-slate-800 border border-slate-700 hover:border-indigo-500/50'}`}
                   title="发送文件"
               >
-                  <Paperclip size={20} />
+                  <Paperclip size={22} />
               </button>
               
-              <textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder={isTransferring ? "文件传输中，文本发送暂时禁用..." : "输入消息..."}
-                  disabled={isTransferring}
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 resize-none max-h-32 py-3 min-h-[44px] text-sm sm:text-base"
-                  rows={1}
-                  style={{ height: 'auto', minHeight: '44px' }}
-              />
+              <div className="flex-1 relative group">
+                  <textarea
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder={isTransferring ? "传输期间文本输入已锁定..." : "发送消息..."}
+                      disabled={isTransferring}
+                      className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-2xl py-3.5 pl-5 pr-12 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none resize-none min-h-[52px] text-base shadow-inner transition-all"
+                      rows={1}
+                      style={{ height: 'auto', minHeight: '52px' }}
+                  />
+                  {inputText && (
+                    <div className="absolute right-3 bottom-3 text-xs text-slate-500 font-mono">Enter</div>
+                  )}
+              </div>
               
               <button 
                   onClick={sendMessage}
                   disabled={!inputText.trim() || isTransferring}
-                  className={`p-3 rounded-xl mb-0.5 transition-all shrink-0 ${
+                  className={`p-3.5 rounded-2xl transition-all shrink-0 shadow-lg flex items-center justify-center ${
                       !inputText.trim() || isTransferring 
-                      ? 'bg-slate-700 text-slate-500 cursor-not-allowed' 
-                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 active:scale-95'
+                      ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700' 
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95 border-t border-white/10'
                   }`}
               >
-                  {isTransferring ? <Loader2 size={20} className="animate-spin" /> : <ArrowUpCircle size={20} />}
+                  {isTransferring ? <Loader2 size={22} className="animate-spin" /> : <ArrowUpCircle size={24} />}
               </button>
           </div>
-          {isTransferring && <div className="text-center mt-2 flex items-center justify-center gap-2 text-xs text-amber-500 font-medium bg-amber-500/10 py-1 rounded-md"><AlertTriangle size={12}/> 文件传输期间请保持页面开启，不要切换网络</div>}
+          {isTransferring && (
+            <div className="text-center mt-3 animate-pulse">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-bold border border-amber-500/20">
+                    <Activity size={12}/> 请保持页面开启，传输中...
+                </span>
+            </div>
+          )}
       </div>
     </div>
   );
@@ -1025,91 +1077,108 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center relative overflow-hidden bg-slate-950 font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen flex flex-col items-center relative overflow-hidden font-sans selection:bg-indigo-500/30">
+       
+       {/* Background Grid Layer */}
+       <div className="fixed inset-0 tech-grid z-0 opacity-40"></div>
+       
        {/* Connection Status Indicator (Global) */}
-       <div className="absolute top-4 right-4 z-50 flex gap-2 items-center">
-            {serverStatus === 'connecting' && <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg"><Loader2 size={12} className="animate-spin"/> 服务器连接中...</div>}
+       <div className="absolute top-6 right-6 z-50 flex gap-3 items-center">
+            {serverStatus === 'connecting' && <div className="bg-slate-900/80 border border-yellow-500/30 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg animate-pulse"><Loader2 size={12} className="animate-spin"/> 连接服务器...</div>}
             {serverStatus === 'disconnected' && appState !== AppState.HOME && (
-                <button onClick={reconnectPeer} className="bg-red-500/20 border border-red-500/30 text-red-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg hover:bg-red-500/30 transition-colors">
-                    <Activity size={12}/> 服务器离线 (点击重连)
+                <button onClick={reconnectPeer} className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg hover:bg-red-500/20 transition-all cursor-pointer group">
+                    <RefreshCw size={12} className="group-hover:rotate-180 transition-transform"/> 服务器离线
                 </button>
             )}
             {serverStatus === 'connected' && appState !== AppState.HOME && (
-                 <div className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 text-xs px-2 py-1 rounded-full flex items-center gap-1 backdrop-blur-md shadow-lg">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> 服务器已连接
+                 <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    在线
                  </div>
             )}
        </div>
 
        {/* HELP MODAL */}
        {showHelp && (
-           <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowHelp(false)}>
-               <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-                   <div className="flex justify-between items-center mb-4">
-                       <h3 className="text-xl font-bold flex items-center gap-2"><Server className="text-indigo-400" size={24}/> 为什么 P2P 需要服务器？</h3>
-                       <button onClick={() => setShowHelp(false)} className="text-slate-500 hover:text-white"><X size={24}/></button>
+           <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowHelp(false)}>
+               <div className="bg-slate-900 border border-slate-700/80 p-8 rounded-3xl max-w-md w-full shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+                   <div className="flex justify-between items-center mb-6">
+                       <h3 className="text-xl font-bold flex items-center gap-2 text-white"><Sparkles className="text-yellow-400" size={20}/> 核心技术原理</h3>
+                       <button onClick={() => setShowHelp(false)} className="text-slate-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full"><X size={20}/></button>
                    </div>
-                   <div className="space-y-4 text-slate-300 text-sm leading-relaxed">
-                       <p>这是一个极好的问题。虽然 P2P（Peer-to-Peer）意味着“设备到设备”的直接传输，但在建立连接之前，您的设备需要“找到”对方。</p>
+                   <div className="space-y-5 text-slate-300 text-sm leading-relaxed">
+                       <p>NexusDrop 使用前沿的 <span className="text-indigo-400 font-bold">WebRTC</span> 技术实现浏览器间的直接通信。</p>
                        
-                       <div className="bg-slate-800/50 p-3 rounded-lg">
-                           <strong className="text-white block mb-1">1. 信令服务器 (Signaling)</strong>
-                           <p>就像打电话需要查电话簿一样，两台设备需要一个中间人来交换 IP 地址。一旦交换完成，服务器就会“退场”，数据直接在两台设备间传输。</p>
+                       <div className="bg-slate-950 p-4 rounded-xl border border-white/5">
+                           <div className="flex items-center gap-3 mb-2">
+                               <Server size={18} className="text-indigo-400"/>
+                               <strong className="text-white">1. 信令握手</strong>
+                           </div>
+                           <p className="text-xs text-slate-400 pl-8">设备A和设备B通过服务器交换“网络名片”（SDP信息）。这就像两个人互换电话号码。</p>
                        </div>
 
-                       <div className="bg-slate-800/50 p-3 rounded-lg">
-                           <strong className="text-white block mb-1">2. 打洞服务器 (STUN)</strong>
-                           <p>大多数电脑都在路由器（WiFi）后面。STUN 服务器帮助您的电脑“看清”自己的公网地址，从而穿透防火墙。</p>
+                       <div className="bg-slate-950 p-4 rounded-xl border border-white/5">
+                           <div className="flex items-center gap-3 mb-2">
+                               <ShieldCheck size={18} className="text-emerald-400"/>
+                               <strong className="text-white">2. P2P 直连</strong>
+                           </div>
+                           <p className="text-xs text-slate-400 pl-8">一旦“电话”打通，服务器立即断开。您的文件直接从设备A飞到设备B，<span className="text-emerald-400">不经过任何云端存储</span>。</p>
                        </div>
-                       
-                       <p className="text-xs text-emerald-400 font-bold mt-2 flex items-center gap-1">
-                           <ShieldCheck size={14}/> 您的文件绝对不会上传到任何服务器。
-                       </p>
                    </div>
-                   <button onClick={() => setShowHelp(false)} className="w-full mt-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold">我明白了</button>
+                   <button onClick={() => setShowHelp(false)} className="w-full mt-8 py-3 bg-white text-slate-900 hover:bg-slate-200 rounded-xl font-bold transition-colors">明白，开始传输</button>
                </div>
            </div>
        )}
 
-       {/* Background */}
+       {/* Ambient Light Orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-[-10%] left-[20%] w-[600px] h-[600px] bg-indigo-900/10 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[20%] w-[500px] h-[500px] bg-emerald-900/5 rounded-full blur-[100px]"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-indigo-600/10 rounded-full blur-[120px] animate-float opacity-40"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-emerald-600/5 rounded-full blur-[120px] animate-float opacity-30" style={{animationDelay: '-3s'}}></div>
       </div>
 
-      <header className={`w-full text-center z-10 transition-all duration-700 ${appState === AppState.HOME ? 'py-12 opacity-100' : 'py-4 opacity-100'}`}>
+      <header className={`w-full text-center z-10 transition-all duration-700 ease-out ${appState === AppState.HOME ? 'py-16 md:py-24 opacity-100' : 'py-6 opacity-100'}`}>
         {appState === AppState.HOME ? (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-700">
-                <div className="inline-flex items-center gap-3 mb-4 bg-slate-900/50 px-5 py-2 rounded-full border border-slate-800 backdrop-blur-sm">
-                    <Zap className="text-yellow-400 w-5 h-5" fill="currentColor" />
-                    <span className="text-slate-300 font-medium tracking-wide text-sm">P2P 安全直连 • 极速传输</span>
+            <div className="animate-in fade-in slide-in-from-top-8 duration-1000">
+                <div className="inline-flex items-center gap-2 mb-6 bg-slate-800/80 px-4 py-1.5 rounded-full border border-slate-700 backdrop-blur-md shadow-lg hover:border-indigo-500/30 transition-colors">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                    </span>
+                    <span className="text-slate-300 font-semibold tracking-wide text-xs uppercase">V 3.0 • Serverless Transfer</span>
                 </div>
-                <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-6 tracking-tight">
-                    Nexus<span className="text-indigo-500">Drop</span>
+                <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-slate-500 mb-6 tracking-tighter drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                    Nexus<span className="text-indigo-500 inline-block hover:scale-105 transition-transform cursor-default">Drop</span>
                 </h1>
-                <p className="text-lg text-slate-400 max-w-2xl mx-auto px-6">
-                    无需登录，不限文件大小，设备间点对点极速互传。
+                <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto px-6 font-medium leading-relaxed">
+                    下一代文件传输协议。<br className="md:hidden"/>
+                    <span className="text-slate-300">安全、极速、无限制</span>。
                 </p>
             </div>
         ) : (
-            <h1 className="text-xl font-bold text-slate-500 tracking-tight cursor-pointer hover:text-slate-300 transition-colors" onClick={() => { if(confirm('确定返回首页？当前连接将断开')) window.location.reload() }}>
-                Nexus<span className="text-indigo-900/50">Drop</span>
-            </h1>
+            <div onClick={() => { if(confirm('确定返回首页？当前连接将断开')) window.location.reload() }} className="cursor-pointer group inline-flex flex-col items-center">
+                <h1 className="text-2xl font-black text-white tracking-tight group-hover:text-indigo-300 transition-colors drop-shadow-lg">
+                    Nexus<span className="text-indigo-500">Drop</span>
+                </h1>
+            </div>
         )}
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 z-10 pb-10">
+      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 z-10 pb-12">
         {appState === AppState.HOME && renderHome()}
         {appState === AppState.SETUP && renderSetup()}
         {appState === AppState.CHAT && renderChat()}
         {appState === AppState.ERROR && (
-            <div className="glass-panel p-8 rounded-2xl max-w-md w-full text-center border border-red-500/30 shadow-2xl shadow-red-500/10">
-                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <AlertTriangle className="w-10 h-10 text-red-500" />
+            <div className="glass-panel p-10 rounded-3xl max-w-md w-full text-center border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.2)] bg-slate-900/80">
+                <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+                    <AlertTriangle className="w-12 h-12 text-red-500" />
                 </div>
-                <h3 className="text-xl font-bold text-red-400 mb-2">出错了</h3>
-                <p className="text-slate-300 mb-6 leading-relaxed">{errorMsg}</p>
-                <Button variant="secondary" onClick={() => window.location.reload()}>刷新页面重试</Button>
+                <h3 className="text-2xl font-bold text-white mb-2">连接中断</h3>
+                <p className="text-slate-400 mb-8 leading-relaxed text-sm">{errorMsg}</p>
+                <Button variant="secondary" onClick={() => window.location.reload()} className="w-full">重新加载</Button>
             </div>
         )}
       </main>
