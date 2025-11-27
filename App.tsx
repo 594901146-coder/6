@@ -136,18 +136,31 @@ const App: React.FC = () => {
           try {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
-            // On mobile, use responsive size logic
-            const width = window.innerWidth;
-            // Adjust size to match the visual box (w-64 = 256px)
-            const size = Math.min(width * 0.7, 250); 
+            
+            // Configuration for better scanning
+            const config = { 
+              fps: 10, 
+              // Dynamically determine qrbox size based on actual camera resolution
+              // This prevents issues where the box is too small or large for the feed
+              qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+                  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                  return {
+                      width: Math.floor(minEdge * 0.7),
+                      height: Math.floor(minEdge * 0.7)
+                  };
+              },
+              // Important: Do NOT force aspectRatio. Let the library handle the camera native ratio.
+              // Forcing it often causes distortion which breaks recognition.
+              disableFlip: false,
+              videoConstraints: {
+                  facingMode: "environment",
+                  focusMode: "continuous" // Try to auto focus
+              }
+            };
             
             await html5QrCode.start(
               { facingMode: "environment" }, 
-              { 
-                  fps: 15, 
-                  qrbox: { width: size, height: size },
-                  aspectRatio: width / window.innerHeight 
-              },
+              config,
               (decodedText: string) => {
                 if (decodedText && decodedText.length > 3) {
                   if (navigator.vibrate) navigator.vibrate(50);
