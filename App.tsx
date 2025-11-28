@@ -36,6 +36,32 @@ import {
   Moon
 } from 'lucide-react';
 
+// --- ICONS ---
+
+const NexusLogo = ({ className = "", size = 40 }: { className?: string, size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${className} drop-shadow-sm`}>
+    <defs>
+      <linearGradient id="nexus-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#6366f1" /> {/* Indigo-500 */}
+        <stop offset="100%" stopColor="#a855f7" /> {/* Purple-500 */}
+      </linearGradient>
+    </defs>
+    
+    {/* 
+       Minimalist Nexus Drop 
+       - Removed the background squircle box for a cleaner, integrated look.
+       - A solid gradient teardrop representing "Drop".
+       - A negative space circle in the center representing "Core/Node".
+    */}
+    <path 
+      fillRule="evenodd" 
+      clipRule="evenodd" 
+      d="M20 2C20 2 6 16.5 6 24.5C6 32.232 12.268 38.5 20 38.5C27.732 38.5 34 32.232 34 24.5C34 16.5 20 2 20 2ZM20 29C22.4853 29 24.5 26.9853 24.5 24.5C24.5 22.0147 22.4853 20 20 20C17.5147 20 15.5 22.0147 15.5 24.5C15.5 26.9853 17.5147 29 20 29Z" 
+      fill="url(#nexus-grad)" 
+    />
+  </svg>
+);
+
 // Main Component
 const App: React.FC = () => {
   // --- STATE ---
@@ -946,37 +972,41 @@ const App: React.FC = () => {
   // --- RENDERERS ---
 
   const renderHome = () => (
-    <div className="flex flex-col md:flex-row gap-6 md:gap-8 max-w-4xl w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+    <div className="flex flex-col md:flex-row gap-6 md:gap-8 max-w-5xl w-full animate-in fade-in slide-in-from-bottom-8 duration-700 items-center justify-center">
       <div 
         onClick={() => { startRoom(); }}
-        className="flex-1 group cursor-pointer relative"
+        className="group cursor-pointer relative w-full md:w-[420px]"
       >
         <div className="absolute inset-0 bg-indigo-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
-        <div className="glass-panel h-64 md:h-72 rounded-[40px] p-6 md:p-8 flex flex-col items-center justify-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-indigo-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]">
-          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-200/50 dark:bg-slate-800/50 flex items-center justify-center mb-5 md:mb-6 group-hover:bg-indigo-600/20 group-hover:scale-110 transition-all duration-300 border border-slate-300 dark:border-white/10 group-hover:border-indigo-500/50">
-            {isGeneratingId ? <Loader2 className="w-8 h-8 md:w-10 md:h-10 text-indigo-400 animate-spin" /> : <Wifi className="w-8 h-8 md:w-10 md:h-10 text-slate-500 dark:text-slate-300 group-hover:text-indigo-400 transition-colors" />}
+        <div className="glass-panel w-full md:min-h-[360px] rounded-[30px] md:rounded-[40px] p-6 md:p-8 flex flex-col items-center justify-center md:justify-start text-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-indigo-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]">
+          <div className="w-16 h-16 md:w-24 md:h-24 mb-4 md:mb-6 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-indigo-100 dark:border-indigo-500/20 shrink-0">
+             <Wifi className="w-8 h-8 md:w-12 md:h-12 text-indigo-500" />
           </div>
-          <h2 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-slate-800 dark:text-white group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors">我要发送</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base text-center font-medium group-hover:text-slate-600 dark:group-hover:text-slate-300">创建加密房间 • 生成口令</p>
-          <div className="mt-4 md:mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-             <span className="text-indigo-500 dark:text-indigo-400 flex items-center gap-1 text-sm font-bold">开始 <ArrowRight size={14}/></span>
+          <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4">我要发送</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8">
+              创建加密房间，生成口令分享给接收方。
+          </p>
+          <div className="hidden md:flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform">
+              创建房间 <ArrowRight size={20} />
           </div>
         </div>
       </div>
 
       <div 
         onClick={() => { joinRoom(); }}
-        className="flex-1 group cursor-pointer relative"
+        className="group cursor-pointer relative w-full md:w-[420px]"
       >
         <div className="absolute inset-0 bg-emerald-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
-        <div className="glass-panel h-64 md:h-72 rounded-[40px] p-6 md:p-8 flex flex-col items-center justify-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-emerald-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.2)]">
-          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-200/50 dark:bg-slate-800/50 flex items-center justify-center mb-5 md:mb-6 group-hover:bg-emerald-600/20 group-hover:scale-110 transition-all duration-300 border border-slate-300 dark:border-white/10 group-hover:border-emerald-500/50">
-            <Download className="w-8 h-8 md:w-10 md:h-10 text-slate-500 dark:text-slate-300 group-hover:text-emerald-400 transition-colors" />
+        <div className="glass-panel w-full md:min-h-[360px] rounded-[30px] md:rounded-[40px] p-6 md:p-8 flex flex-col items-center justify-center md:justify-start text-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-emerald-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+          <div className="w-16 h-16 md:w-24 md:h-24 mb-4 md:mb-6 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-emerald-100 dark:border-emerald-500/20 shrink-0">
+            <Download className="w-8 h-8 md:w-12 md:h-12 text-emerald-500" />
           </div>
-          <h2 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-slate-800 dark:text-white group-hover:text-emerald-500 dark:group-hover:text-emerald-300 transition-colors">我要接收</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base text-center font-medium group-hover:text-slate-600 dark:group-hover:text-slate-300">输入口令 • 扫码连接</p>
-          <div className="mt-4 md:mt-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-             <span className="text-emerald-500 dark:text-emerald-400 flex items-center gap-1 text-sm font-bold">加入 <ArrowRight size={14}/></span>
+          <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4">我要接收</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8">
+              输入口令或扫描二维码，建立安全连接。
+          </p>
+          <div className="hidden md:flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform">
+              加入连接 <ArrowRight size={20} />
           </div>
         </div>
       </div>
@@ -1476,26 +1506,17 @@ const App: React.FC = () => {
       </div>
 
       {/* Hide Global Header on Mobile when in Chat to maximize space */}
-      <header className={`w-full text-center z-10 transition-all duration-700 ease-out ${appState === AppState.CHAT ? 'hidden md:flex py-6' : 'flex py-12 md:py-24'} ${appState === AppState.SETUP ? 'py-6' : ''}`}>
+      <header className={`w-full text-center z-10 transition-all duration-700 ease-out ${appState === AppState.CHAT ? 'hidden md:flex py-6' : 'flex py-8 md:py-20'} ${appState === AppState.SETUP ? 'py-6' : ''}`}>
         {appState === AppState.HOME ? (
-            <div className="animate-in fade-in slide-in-from-top-8 duration-1000 px-4">
-                <div className="inline-flex items-center gap-2 mb-6 bg-white/60 dark:bg-slate-800/80 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 backdrop-blur-md shadow-lg hover:border-indigo-500/30 transition-colors">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                    </span>
-                    <span className="text-slate-600 dark:text-slate-300 font-semibold tracking-wide text-xs uppercase">V 3.0 • Serverless Transfer</span>
-                </div>
-                <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 via-slate-800 to-slate-500 dark:from-white dark:via-white dark:to-slate-500 mb-6 tracking-tighter drop-shadow-2xl dark:drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+            <div className="animate-in fade-in slide-in-from-top-8 duration-1000 px-4 flex items-center justify-center gap-4">
+                <NexusLogo size={64} className="animate-float" />
+                <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 via-slate-800 to-slate-500 dark:from-white dark:via-white dark:to-slate-500 mb-0 tracking-tighter drop-shadow-2xl dark:drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
                     Nexus<span className="text-indigo-600 dark:text-indigo-500 inline-block hover:scale-105 transition-transform cursor-default">Drop</span>
                 </h1>
-                <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mx-auto px-6 font-medium leading-relaxed">
-                    下一代文件传输协议。<br className="md:hidden"/>
-                    <span className="text-slate-900 dark:text-slate-300">安全、极速、无限制</span>。
-                </p>
             </div>
         ) : (
-            <div onClick={() => { if(confirm('确定返回首页？当前连接将断开')) window.location.reload() }} className="cursor-pointer group inline-flex flex-col items-center">
+            <div onClick={() => { if(confirm('确定返回首页？当前连接将断开')) window.location.reload() }} className="cursor-pointer group inline-flex items-center gap-3">
+                <NexusLogo size={28} />
                 <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors drop-shadow-lg">
                     Nexus<span className="text-indigo-600 dark:text-indigo-500">Drop</span>
                 </h1>
