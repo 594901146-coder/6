@@ -77,6 +77,9 @@ const App: React.FC = () => {
   const currentIncomingMetaRef = useRef<FileMetadata | null>(null);
   const fileMetaRef = useRef<FileMetadata | null>(null);
   const pendingFileTransferRef = useRef<File | null>(null);
+  
+  // UI Throttling Refs
+  const lastProgressUpdateRef = useRef<number>(0);
 
   // --- LIFECYCLE & HELPERS ---
 
@@ -379,6 +382,7 @@ const App: React.FC = () => {
           incomingFileIdRef.current = meta.id;
           receivedChunksRef.current = [];
           receivedSizeRef.current = 0;
+          lastProgressUpdateRef.current = 0;
           
           setIsTransferring(true);
 
@@ -417,45 +421,53 @@ const App: React.FC = () => {
     if (!meta) return;
     
     let chunk: Blob;
-    if (data instanceof Blob) {
-        chunk = data;
-    } else if (data instanceof ArrayBuffer) {
-        chunk = new Blob([data]);
-    } else {
-        chunk = new Blob([data]);
-    }
+    try {
+        if (data instanceof Blob) {
+            chunk = data;
+        } else if (data instanceof ArrayBuffer) {
+            chunk = new Blob([data]);
+        } else {
+            chunk = new Blob([data]);
+        }
 
-    receivedChunksRef.current.push(chunk);
-    receivedSizeRef.current += chunk.size;
+        receivedChunksRef.current.push(chunk);
+        receivedSizeRef.current += chunk.size;
 
-    const total = meta.size;
-    const progress = Math.round((receivedSizeRef.current / total) * 100);
+        const total = meta.size;
+        const progress = Math.min(Math.round((receivedSizeRef.current / total) * 100), 100);
+        const now = Date.now();
 
-    if (progress % 5 === 0 || progress >= 100) {
-        setMessages(prev => prev.map(m => {
-            if (m.id === meta.id) return { ...m, progress: progress };
-            return m;
-        }));
-    }
+        // Throttle UI updates to max 10fps (every 100ms) to keep main thread free for data processing
+        if (now - lastProgressUpdateRef.current > 100 || progress >= 100) {
+            lastProgressUpdateRef.current = now;
+            setMessages(prev => prev.map(m => {
+                if (m.id === meta.id) return { ...m, progress: progress };
+                return m;
+            }));
+        }
 
-    if (receivedSizeRef.current >= total) {
-        addLog("✅ 文件接收完毕，合成中...");
-        const blob = new Blob(receivedChunksRef.current, { type: meta.type });
-        const url = URL.createObjectURL(blob);
-        
-        setMessages(prev => prev.map(m => {
-            if (m.id === meta.id) {
-                return { ...m, progress: 100, status: 'completed', fileUrl: url };
-            }
-            return m;
-        }));
+        if (receivedSizeRef.current >= total) {
+            addLog("✅ 文件接收完毕，合成中...");
+            const blob = new Blob(receivedChunksRef.current, { type: meta.type });
+            const url = URL.createObjectURL(blob);
+            
+            setMessages(prev => prev.map(m => {
+                if (m.id === meta.id) {
+                    return { ...m, progress: 100, status: 'completed', fileUrl: url };
+                }
+                return m;
+            }));
 
-        currentIncomingMetaRef.current = null;
-        fileMetaRef.current = null;
-        incomingFileIdRef.current = null;
-        receivedChunksRef.current = [];
-        receivedSizeRef.current = 0;
-        setIsTransferring(false);
+            currentIncomingMetaRef.current = null;
+            fileMetaRef.current = null;
+            incomingFileIdRef.current = null;
+            receivedChunksRef.current = [];
+            receivedSizeRef.current = 0;
+            setIsTransferring(false);
+        }
+    } catch (e) {
+        console.error("Chunk processing error", e);
+        addLog("Data chunk error");
     }
   };
 
@@ -676,62 +688,77 @@ const App: React.FC = () => {
     }
   };
 
-  const streamFile = (file: File) => {
-      // Small chunks for reliability
-      const chunkSize = 16 * 1024; 
+  // High Performance File Streamer
+  const streamFile = async (file: File) => {
+      // Chunk size optimized for throughput (64KB)
+      const chunkSize = 64 * 1024; 
       let offset = 0;
+      let lastUpdate = 0;
       
-      const readSlice = (o: number) => {
-          if (!connRef.current || !connRef.current.open) {
-              addLog("传输中断：连接已关闭");
-              setIsTransferring(false);
-              return;
+      try {
+          // Use a loop instead of recursion to avoid stack depth and reduce overhead
+          while (offset < file.size) {
+              if (!connRef.current || !connRef.current.open) {
+                  addLog("传输中断：连接已关闭");
+                  break;
+              }
+
+              // Backpressure Control:
+              // If the WebRTC buffer is full (>16MB), wait for it to drain.
+              // This prevents browser crashes while still allowing high speed.
+              const channel = connRef.current.dataChannel;
+              if (channel && channel.bufferedAmount > 16 * 1024 * 1024) {
+                  // Wait 50ms and try again
+                  await new Promise(r => setTimeout(r, 50));
+                  continue;
+              }
+
+              // Read chunk as ArrayBuffer
+              // Using await file.slice().arrayBuffer() is cleaner and usually faster than FileReader
+              const slice = file.slice(offset, offset + chunkSize);
+              const buffer = await slice.arrayBuffer();
+              
+              connRef.current.send(buffer);
+              offset += chunkSize;
+
+              // Throttled UI Updates
+              const now = Date.now();
+              // Update only every 100ms OR when finished to keep UI responsive
+              if (now - lastUpdate > 100 || offset >= file.size) {
+                  lastUpdate = now;
+                  const progress = Math.min((offset / file.size) * 100, 100);
+                  
+                  setMessages(prev => prev.map(m => {
+                      if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
+                          return { ...m, progress: progress };
+                      }
+                      return m;
+                  }));
+              }
+              
+              // Yield to main thread briefly (0ms) to allow UI updates and events to fire
+              // This is critical for keeping the browser responsive during heavy transfers
+              await new Promise(r => setTimeout(r, 0));
           }
 
-          const slice = file.slice(o, o + chunkSize);
-          const reader = new FileReader();
-          
-          reader.onload = (evt) => {
-              if (evt.target?.readyState === FileReader.DONE) {
-                  try {
-                    connRef.current.send(evt.target.result); 
-                    offset += chunkSize;
-                    
-                    const progress = Math.min((offset / file.size) * 100, 100);
-                    
-                    if (progress % 5 === 0 || progress >= 100) {
-                        setMessages(prev => prev.map(m => {
-                            if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
-                                return { ...m, progress: progress };
-                            }
-                            return m;
-                        }));
-                    }
-
-                    if (offset < file.size) {
-                        // 5ms throttle to prevent buffer overflow
-                        setTimeout(() => readSlice(offset), 5);
-                    } else {
-                        addLog("文件发送完成");
-                        setIsTransferring(false);
-                        setMessages(prev => prev.map(m => {
-                          if (m.fileMeta?.name === file.name && m.sender === 'me') {
-                               return { ...m, progress: 100, status: 'completed' };
-                          }
-                          return m;
-                        }));
-                    }
-                  } catch (err) {
-                      console.error("Send error", err);
-                      addLog("发送中断: " + err);
-                      setIsTransferring(false);
-                      addSystemMessage("文件发送中断");
+          // Complete
+          if (offset >= file.size) {
+              addLog("文件发送完成");
+              setMessages(prev => prev.map(m => {
+                  if (m.fileMeta?.name === file.name && m.sender === 'me') {
+                      return { ...m, progress: 100, status: 'completed' };
                   }
-              }
-          };
-          reader.readAsArrayBuffer(slice);
-      };
-      readSlice(0);
+                  return m;
+              }));
+          }
+
+      } catch (err: any) {
+          console.error("Stream error", err);
+          addLog("发送中断: " + err.message);
+          addSystemMessage("文件发送失败");
+      } finally {
+          setIsTransferring(false);
+      }
   };
 
   const exitChat = () => {
