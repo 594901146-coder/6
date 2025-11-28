@@ -667,6 +667,51 @@ const App: React.FC = () => {
       return false;
   };
 
+  // RESET FUNCTION - REPLACES RELOAD
+  const resetToHome = useCallback(() => {
+     addLog("正在断开连接并返回首页...");
+     
+     // 1. Close Data Connection
+     if(connRef.current) {
+         connRef.current.close();
+         connRef.current = null;
+     }
+     
+     // 2. Destroy Peer
+     if(peerRef.current) {
+         peerRef.current.destroy();
+         peerRef.current = null;
+     }
+     
+     // 3. Stop Scanner
+     if(scannerRef.current) {
+         scannerRef.current.stop().catch(() => {});
+         scannerRef.current = null;
+     }
+     
+     // 4. Clear Timers
+     stopHeartbeat();
+     releaseWakeLock();
+     if(connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+     
+     // 5. Reset State
+     setAppState(AppState.HOME);
+     setRole(null);
+     setPeerId('');
+     setTargetPeerId('');
+     setConnectionStatus('Disconnected');
+     setServerStatus('disconnected');
+     setErrorMsg('');
+     setMessages([]);
+     setIsConnecting(false);
+     setIsTransferring(false);
+     setRetryCount(0);
+     setIsGeneratingId(false);
+     setShowQr(false);
+     setIsScanning(false);
+     // Note: we keep logs for debug, but you could setLogs([]) if preferred
+  }, []);
+
   const startRoom = async () => {
     attemptAutoFullScreen();
     setAppState(AppState.SETUP); // Switch UI immediately
@@ -674,10 +719,9 @@ const App: React.FC = () => {
     setIsGeneratingId(true);
     setShowQr(false);
     setErrorMsg('');
+    setLogs([]); // Start fresh logs
     
-    // Reset logs but keep key info
-    setLogs(prev => prev.length > 0 ? [...prev, "--- 新会话 ---"] : []);
-    
+    // Ensure cleanup of any previous session
     if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
@@ -708,9 +752,10 @@ const App: React.FC = () => {
     setAppState(AppState.SETUP);
     setRole('receiver');
     setErrorMsg('');
-    setLogs(prev => prev.length > 0 ? [...prev, "--- 新会话 ---"] : []);
+    setLogs([]); // Start fresh logs
     addLog("初始化接收端...");
     
+    // Ensure cleanup of any previous session
     if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
@@ -963,12 +1008,6 @@ const App: React.FC = () => {
       }
   };
 
-  const exitChat = () => {
-     if(connRef.current) connRef.current.close();
-     if(peerRef.current) peerRef.current.destroy();
-     window.location.reload();
-  };
-
   // --- RENDERERS ---
 
   const renderHome = () => (
@@ -1037,7 +1076,7 @@ const App: React.FC = () => {
                <Sparkles size={16} className="md:w-[18px] md:h-[18px]" />
            </button>
            <div className="w-px h-4 bg-slate-400/30 dark:bg-white/10 mx-0.5"></div>
-           <button onClick={exitChat} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors" title="返回首页">
+           <button onClick={resetToHome} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors" title="返回首页">
                <X size={16} className="md:w-[18px] md:h-[18px]" />
            </button>
         </div>
@@ -1253,7 +1292,7 @@ const App: React.FC = () => {
              <button onClick={toggleFullScreen} className="md:hidden p-2 hover:bg-slate-200 dark:hover:bg-white/5 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all border border-transparent" title={isFullscreen ? "退出全屏" : "全屏"}>
                  {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
              </button>
-             <button onClick={exitChat} className="p-2 md:p-3 hover:bg-slate-200 dark:hover:bg-white/5 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all border border-transparent" title="断开连接">
+             <button onClick={resetToHome} className="p-2 md:p-3 hover:bg-slate-200 dark:hover:bg-white/5 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all border border-transparent" title="断开连接">
                  <X size={20} />
              </button>
          </div>
@@ -1515,7 +1554,7 @@ const App: React.FC = () => {
                 </h1>
             </div>
         ) : (
-            <div onClick={() => { if(confirm('确定返回首页？当前连接将断开')) window.location.reload() }} className="cursor-pointer group inline-flex items-center gap-3">
+            <div onClick={() => { if(confirm('确定断开连接并返回首页？')) resetToHome() }} className="cursor-pointer group inline-flex items-center gap-3">
                 <NexusLogo size={28} />
                 <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors drop-shadow-lg">
                     Nexus<span className="text-indigo-600 dark:text-indigo-500">Drop</span>
