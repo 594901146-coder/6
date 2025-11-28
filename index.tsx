@@ -1,9 +1,6 @@
-import React, { ReactNode, Suspense } from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
-
-// Lazy load the App component. 
-// This allows the ErrorBoundary to catch errors that happen during the import of App.tsx
-const App = React.lazy(() => import('./App'));
+import App from './App';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -15,21 +12,14 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component to catch crashes
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Explicitly declare state and props to satisfy TypeScript
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null };
-  readonly props: ErrorBoundaryProps;
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.props = props;
-  }
-
+  
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
@@ -51,9 +41,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem', color: '#ef4444' }}>
               程序遇到错误 (Application Error)
             </h1>
-            <p style={{ marginBottom: '1rem' }}>
-              网页在加载时崩溃了。
-            </p>
             <div style={{ 
               backgroundColor: '#1e293b', 
               padding: '1rem', 
@@ -63,14 +50,14 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
               fontFamily: 'monospace',
               fontSize: '0.875rem',
               color: '#e2e8f0',
-              maxHeight: '200px'
+              maxHeight: '200px',
+              marginBottom: '1.5rem'
             }}>
               {this.state.error?.toString()}
             </div>
             <button 
               onClick={() => window.location.reload()}
               style={{
-                marginTop: '1.5rem',
                 padding: '0.75rem 1.5rem',
                 backgroundColor: '#3b82f6',
                 color: 'white',
@@ -91,32 +78,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-const LoadingScreen = () => (
-  <div style={{ 
-    height: '100vh', 
-    width: '100vw', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    backgroundColor: '#0f172a',
-    color: '#94a3b8'
-  }}>
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-      <div style={{ 
-        width: '32px', 
-        height: '32px', 
-        borderRadius: '50%', 
-        border: '3px solid #3b82f6', 
-        borderTopColor: 'transparent', 
-        animation: 'spin 1s linear infinite' 
-      }}>
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      </div>
-      <span>正在启动 NexusDrop...</span>
-    </div>
-  </div>
-);
-
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
@@ -126,9 +87,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <Suspense fallback={<LoadingScreen />}>
-        <App />
-      </Suspense>
+      <App />
     </ErrorBoundary>
   </React.StrictMode>
 );

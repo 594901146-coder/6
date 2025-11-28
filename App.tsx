@@ -102,6 +102,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const connectionTimeoutRef = useRef<any>(null);
   const heartbeatRef = useRef<any>(null);
+  const lastPongRef = useRef<number>(0); // Track last pong time
   const wakeLockRef = useRef<any>(null); // Screen Wake Lock
 
   // Buffer Refs for Receiving
@@ -263,16 +264,27 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isTransferring]);
 
-  // --- HEARTBEAT ---
+  // --- HEARTBEAT & HEALTH CHECK ---
   const startHeartbeat = () => {
     stopHeartbeat();
+    lastPongRef.current = Date.now();
+    
     heartbeatRef.current = setInterval(() => {
+      // 1. Send PING
       if (connRef.current && connRef.current.open) {
         try {
             connRef.current.send({ type: 'PING' });
         } catch (e) {
-            console.warn("Heartbeat failed", e);
+            console.warn("Heartbeat send failed", e);
         }
+      }
+
+      // 2. Check PONG timeout
+      const timeSinceLastPong = Date.now() - lastPongRef.current;
+      if (timeSinceLastPong > 10000 && connectionStatus === 'Connected') {
+          addLog("❌ 心跳超时 (10s)，判定对方已掉线");
+          setConnectionStatus('Disconnected');
+          // Optional: Attempt auto-reconnect logic here if needed
       }
     }, 4000); 
   };
@@ -404,6 +416,8 @@ const App: React.FC = () => {
       peer.on('disconnected', () => {
         addLog("⚠️ 与信令服务器断开连接 (可能网络不稳定)");
         setServerStatus('disconnected');
+        // Do NOT set connectionStatus to Disconnected here. 
+        // P2P might still be alive. Heartbeat will check that.
       });
 
       peer.on('close', () => {
@@ -450,6 +464,7 @@ const App: React.FC = () => {
     conn.on('open', () => {
       addLog(`✅ 数据通道已打开! 对方: ${conn.peer}`);
       conn.send({ type: 'PING' });
+      lastPongRef.current = Date.now(); // Reset pong timer
       startHeartbeat();
     });
 
@@ -459,6 +474,7 @@ const App: React.FC = () => {
           return;
       }
       if (data && data.type === 'PONG') {
+          lastPongRef.current = Date.now(); // Alive!
           if (connectionStatus !== 'Connected') {
               addLog(`🤝 连接握手确认成功！`);
               setConnectionStatus('Connected');
@@ -1098,13 +1114,13 @@ const App: React.FC = () => {
                     {/* Scanner Button Above */}
                     <button 
                         onClick={() => setIsScanning(true)} 
-                        className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 py-4 rounded-full flex items-center justify-center gap-3 transition-all shadow-inner group"
+                        className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 py-4 h-16 rounded-full flex items-center justify-center gap-3 transition-all shadow-inner group"
                     >
                         <ScanLine size={22} className="group-hover:scale-110 transition-transform"/>
                         <span className="font-mono text-base md:text-lg font-bold">扫描二维码连接</span>
                     </button>
 
-                    {/* Input Field Below */}
+                    {/* Input Field Below - Matched Height h-16 (4rem) */}
                     <div className="relative w-full">
                       <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                         <Lock size={20} />
@@ -1117,7 +1133,7 @@ const App: React.FC = () => {
                             if(errorMsg) setErrorMsg(''); 
                         }}
                         placeholder="或者输入房间口令"
-                        className={`w-full bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-14 pr-6 py-4 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-base md:text-lg transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-600`}
+                        className={`w-full h-16 bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-14 pr-6 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-base md:text-lg transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-600`}
                       />
                     </div>
                 </div>
@@ -1244,7 +1260,10 @@ const App: React.FC = () => {
                      ) : (
                         <>
                            <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-red-500"></span>
-                           <span className="text-[10px] md:text-xs text-red-500 dark:text-red-400 font-medium tracking-wide uppercase">Connection Lost</span>
+                           <span className="text-[10px] md:text-xs text-red-500 dark:text-red-400 font-medium tracking-wide uppercase flex items-center gap-1">
+                             Connection Lost 
+                             <button onClick={() => connectToTarget(undefined, true)} className="underline hover:text-red-300 ml-1">重连</button>
+                           </span>
                         </>
                      )}
                  </div>
@@ -1304,7 +1323,7 @@ const App: React.FC = () => {
                               {msg.type === 'text' && <p className="break-words leading-relaxed whitespace-pre-wrap text-[15px]">{msg.content}</p>}
 
                               {msg.type === 'file' && (
-                                  <div className={`w-full sm:w-72 rounded-[20px] p-3 ${isError ? 'bg-red-50 dark:bg-red-900/20' : isMe ? 'bg-indigo-800/30' : 'bg-slate-100 dark:bg-slate-900/50'} border ${isError ? 'border-red-200 dark:border-red-500/30' : isMe ? 'border-indigo-400/20' : 'border-slate-200 dark:border-white/5'}`}>
+                                  <div className={`w-full sm:w-72 rounded-[20px] p-3 ${isError ? 'bg-red-5 dark:bg-red-900/20' : isMe ? 'bg-indigo-800/30' : 'bg-slate-100 dark:bg-slate-900/50'} border ${isError ? 'border-red-200 dark:border-red-500/30' : isMe ? 'border-indigo-400/20' : 'border-slate-200 dark:border-white/5'}`}>
                                       <div className="flex items-center gap-3 mb-3">
                                           <div className={`p-2.5 rounded-2xl shrink-0 ${isError ? 'bg-red-200 dark:bg-red-500/20 text-red-600 dark:text-red-400' : isMe ? 'bg-indigo-500/20 text-white' : 'bg-emerald-100 dark:bg-slate-700 text-emerald-600 dark:text-emerald-400'}`}>
                                               {isError ? <AlertTriangle size={20}/> : <FileIcon size={20} />}
