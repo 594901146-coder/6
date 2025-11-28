@@ -350,6 +350,7 @@ const App: React.FC = () => {
       peer.on('disconnected', () => {
         addLog("⚠️ 与信令服务器断开连接 (可能网络不稳定)");
         setServerStatus('disconnected');
+        // Note: We DO NOT destroy the peer here. P2P connections might still be alive.
       });
 
       peer.on('close', () => {
@@ -737,19 +738,37 @@ const App: React.FC = () => {
   };
 
   const sendMessage = () => {
-    if (!inputText.trim() || !connRef.current) return;
+    if (!inputText.trim()) return;
     
-    connRef.current.send({ type: 'TEXT', payload: inputText });
+    // Robust checking for P2P connection even if signaling is down
+    if (!connRef.current) {
+        alert("错误：P2P 连接对象不存在");
+        return;
+    }
     
-    setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        sender: 'me',
-        type: 'text',
-        content: inputText,
-        timestamp: Date.now()
-    }]);
+    if (!connRef.current.open) {
+        addLog("尝试发送消息，但连接状态未 OPEN");
+        alert("连接似乎已断开，无法发送消息");
+        // Don't return, try anyway just in case UI is stale
+    }
     
-    setInputText('');
+    try {
+        connRef.current.send({ type: 'TEXT', payload: inputText });
+        
+        setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            sender: 'me',
+            type: 'text',
+            content: inputText,
+            timestamp: Date.now()
+        }]);
+        
+        setInputText('');
+    } catch (e: any) {
+        console.error("Send message failed", e);
+        alert(`发送失败: ${e.message}`);
+        addLog(`发送文本失败: ${e.message}`);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1148,11 +1167,25 @@ const App: React.FC = () => {
              <div>
                  <h3 className="font-bold text-white text-base md:text-lg tracking-tight">加密传输通道</h3>
                  <div className="flex items-center gap-2 mt-0.5">
-                     <span className={`relative flex h-2 w-2 md:h-2.5 md:w-2.5`}>
-                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                       <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-emerald-500"></span>
-                     </span>
-                     <span className="text-[10px] md:text-xs text-emerald-400 font-medium tracking-wide uppercase">Secure Connection</span>
+                     {/* 
+                       P2P Connection Status Indicator 
+                       This relies on 'connectionStatus' which tracks the direct peer link,
+                       independent of the signaling 'serverStatus'.
+                     */}
+                     {connectionStatus === 'Connected' ? (
+                        <>
+                           <span className={`relative flex h-2 w-2 md:h-2.5 md:w-2.5`}>
+                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                             <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-emerald-500"></span>
+                           </span>
+                           <span className="text-[10px] md:text-xs text-emerald-400 font-medium tracking-wide uppercase">Direct P2P Link</span>
+                        </>
+                     ) : (
+                        <>
+                           <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-red-500"></span>
+                           <span className="text-[10px] md:text-xs text-red-400 font-medium tracking-wide uppercase">Connection Lost</span>
+                        </>
+                     )}
                  </div>
              </div>
          </div>
@@ -1341,14 +1374,16 @@ const App: React.FC = () => {
        <div className="fixed inset-0 tech-grid z-0 opacity-40"></div>
        
        {/* Connection Status Indicator (Global) */}
-       <div className="absolute top-4 right-4 md:top-6 md:right-6 z-50 flex gap-3 items-center">
+       {/* Only show in SETUP mode. In CHAT, we rely on the header indicator to avoid mobile overlap. */}
+       {appState === AppState.SETUP && (
+         <div className="absolute top-4 right-4 md:top-6 md:right-6 z-50 flex gap-3 items-center animate-in fade-in duration-300">
             {serverStatus === 'connecting' && <div className="bg-slate-900/80 border border-yellow-500/30 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg animate-pulse"><Loader2 size={12} className="animate-spin"/> 连接服务器...</div>}
-            {serverStatus === 'disconnected' && appState !== AppState.HOME && (
+            {serverStatus === 'disconnected' && (
                 <button onClick={reconnectPeer} className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg hover:bg-red-500/20 transition-all cursor-pointer group">
                     <RefreshCw size={12} className="group-hover:rotate-180 transition-transform"/> 服务器离线
                 </button>
             )}
-            {serverStatus === 'connected' && appState !== AppState.HOME && (
+            {serverStatus === 'connected' && (
                  <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -1357,7 +1392,8 @@ const App: React.FC = () => {
                     在线
                  </div>
             )}
-       </div>
+         </div>
+       )}
 
        {/* HELP MODAL */}
        {showHelp && (
