@@ -1160,10 +1160,18 @@ const App: React.FC = () => {
              </div>
            ) : (
              <>
-                <div className="flex gap-3">
-                    <div className="relative flex-1">
-                      <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                        <Lock size={18} />
+                <div className="flex flex-col gap-4 w-full">
+                    <button 
+                        onClick={() => setIsScanning(true)} 
+                        className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 py-4 rounded-full flex items-center justify-center gap-3 transition-all shadow-inner group"
+                    >
+                        <ScanLine size={22} className="group-hover:scale-110 transition-transform"/>
+                        <span className="font-mono text-base md:text-lg font-bold">扫描二维码连接</span>
+                    </button>
+
+                    <div className="relative w-full">
+                      <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                        <Lock size={20} />
                       </div>
                       <input 
                         type="text" 
@@ -1172,17 +1180,10 @@ const App: React.FC = () => {
                             setTargetPeerId(e.target.value);
                             if(errorMsg) setErrorMsg(''); 
                         }}
-                        placeholder="输入房间口令"
-                        className={`w-full bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-12 pr-6 py-4 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-base md:text-lg transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-600`}
+                        placeholder="或者输入房间口令"
+                        className={`w-full bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-14 pr-6 py-4 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-base md:text-lg transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-600`}
                       />
                     </div>
-                    <button 
-                        onClick={() => setIsScanning(true)} 
-                        className={`aspect-square h-auto shrink-0 bg-slate-50 dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-full text-slate-500 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors flex items-center justify-center shadow-sm`} 
-                        title="扫码"
-                    >
-                        <ScanLine size={24} />
-                    </button>
                 </div>
                 
                 {errorMsg && (
