@@ -130,7 +130,8 @@ const App: React.FC = () => {
       const timer = setTimeout(() => {
         const startScanner = async () => {
           if (typeof window.Html5Qrcode === 'undefined') {
-            setErrorMsg("扫码组件加载失败，请刷新页面重试");
+            setErrorMsg("扫码组件未加载，请检查网络");
+            addLog("Error: Html5Qrcode is undefined");
             setIsScanning(false);
             return;
           }
@@ -206,11 +207,12 @@ const App: React.FC = () => {
         return peerRef.current;
     }
     
+    // Safety check for library loading
     if (typeof window.Peer === 'undefined') {
-      const msg = "PeerJS 组件加载失败，请检查网络";
+      const msg = "PeerJS 组件尚未加载完成，请检查网络连接 (CDN)";
       setErrorMsg(msg);
-      addLog(msg);
-      setAppState(AppState.ERROR);
+      addLog("CRITICAL ERROR: window.Peer is undefined");
+      setShowLogs(true); // Auto-show logs on critical error
       return null;
     }
 
@@ -227,10 +229,10 @@ const App: React.FC = () => {
         config: {
           // Optimized list for China & Global
           iceServers: [
-            { urls: 'stun:stun.miwifi.com' },          // China Xiaomi
-            { urls: 'stun:stun.qq.com:3478' },         // China Tencent
-            { urls: 'stun:stun.l.google.com:19302' },  // Global Google
-            { urls: 'stun:global.stun.twilio.com:3478'} // Backup
+             { urls: 'stun:stun.chat.bilibili.com:3478' }, // Bilibili (China Strong)
+             { urls: 'stun:stun.miwifi.com' },             // Xiaomi (China Strong)
+             { urls: 'stun:stun.qq.com:3478' },            // Tencent (China Strong)
+             { urls: 'stun:stun.l.google.com:19302' }      // Google (Global)
           ],
           iceCandidatePoolSize: 10,
         }
@@ -251,8 +253,6 @@ const App: React.FC = () => {
       peer.on('disconnected', () => {
         addLog("⚠️ 与信令服务器断开连接 (可能网络不稳定)");
         setServerStatus('disconnected');
-        // Auto-reconnect logic
-        // setTimeout(() => { if(peer && !peer.destroyed) peer.reconnect(); }, 2000);
       });
 
       peer.on('close', () => {
@@ -271,8 +271,10 @@ const App: React.FC = () => {
         else if (err.type === 'network') msg = "网络连接失败，无法连接到信令服务器。";
         else if (err.type === 'server-error') msg = "信令服务器暂时不可用。";
         else if (err.type === 'unavailable-id') msg = "ID 冲突，正在重试...";
+        else if (err.type === 'browser-incompatible') msg = "您的浏览器不支持 WebRTC";
         
         setErrorMsg(msg);
+        setShowLogs(true); // Auto-show logs on error
       });
 
       peerRef.current = peer;
@@ -281,6 +283,7 @@ const App: React.FC = () => {
       addLog(`初始化异常: ${e.message}`);
       setErrorMsg("初始化失败: " + e.message);
       setAppState(AppState.ERROR);
+      setShowLogs(true);
       return null;
     }
   }, []);
@@ -468,18 +471,39 @@ const App: React.FC = () => {
 
   // --- ACTIONS ---
 
+  const waitForPeerJS = async (): Promise<boolean> => {
+      if (typeof window.Peer !== 'undefined') return true;
+      addLog("等待 PeerJS 加载...");
+      for (let i = 0; i < 20; i++) { // Wait up to 2 seconds
+          await new Promise(r => setTimeout(r, 100));
+          if (typeof window.Peer !== 'undefined') {
+              addLog("PeerJS 加载完成");
+              return true;
+          }
+      }
+      return false;
+  };
+
   const startRoom = async () => {
-    setIsGeneratingId(true);
+    setAppState(AppState.SETUP); // Switch UI immediately
     setRole('sender');
-    setAppState(AppState.SETUP);
+    setIsGeneratingId(true);
     setShowQr(false);
     setErrorMsg('');
-    setLogs([]); 
-    addLog("正在创建房间...");
+    
+    // Reset logs but keep key info
+    setLogs(prev => prev.length > 0 ? [...prev, "--- 新会话 ---"] : []);
     
     if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
+    }
+
+    const ready = await waitForPeerJS();
+    if (!ready) {
+        setErrorMsg("核心组件加载超时，请刷新页面");
+        setIsGeneratingId(false);
+        return;
     }
 
     try {
@@ -495,11 +519,11 @@ const App: React.FC = () => {
     }
   };
 
-  const joinRoom = () => {
-    setRole('receiver');
+  const joinRoom = async () => {
     setAppState(AppState.SETUP);
+    setRole('receiver');
     setErrorMsg('');
-    setLogs([]);
+    setLogs(prev => prev.length > 0 ? [...prev, "--- 新会话 ---"] : []);
     addLog("初始化接收端...");
     
     if (peerRef.current) {
@@ -507,6 +531,12 @@ const App: React.FC = () => {
         peerRef.current = null;
     }
     
+    const ready = await waitForPeerJS();
+    if (!ready) {
+        setErrorMsg("核心组件加载超时，请刷新页面");
+        return;
+    }
+
     // Auto-generate local ID for receiver
     const localId = `recv-${Math.floor(Math.random() * 100000)}`;
     initializePeer(localId); 
@@ -839,6 +869,7 @@ const App: React.FC = () => {
              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-400 bg-slate-900/50 rounded-2xl border border-dashed border-slate-700/50">
                <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
                <p className="animate-pulse font-medium">正在初始化安全连接...</p>
+               <p className="text-xs text-slate-500">正在连接信令服务器 (Bilibili/Xiaomi/Google)...</p>
              </div>
            ) : (
              <>
