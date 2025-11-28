@@ -28,7 +28,8 @@ import {
   Sparkles,
   Lock,
   User,
-  CheckCheck
+  CheckCheck,
+  Smartphone
 } from 'lucide-react';
 
 // Main Component
@@ -69,6 +70,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const connectionTimeoutRef = useRef<any>(null);
   const heartbeatRef = useRef<any>(null);
+  const wakeLockRef = useRef<any>(null); // Screen Wake Lock
 
   // Buffer Refs for Receiving
   const incomingFileIdRef = useRef<string | null>(null);
@@ -101,11 +103,83 @@ const App: React.FC = () => {
   useEffect(() => {
     return () => {
       stopHeartbeat();
+      releaseWakeLock();
       if (scannerRef.current) scannerRef.current.stop().catch(() => {});
       if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
       if (peerRef.current) peerRef.current.destroy();
     };
   }, []);
+
+  // --- WAKE LOCK & VISIBILITY HANDLING ---
+  
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        addLog("💡 屏幕常亮锁已激活");
+      } catch (err: any) {
+        console.warn(`Wake Lock Error: ${err.name}, ${err.message}`);
+      }
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+        addLog("💡 屏幕常亮锁已释放");
+      } catch (err) {
+        console.warn("Wake Lock release error", err);
+      }
+    }
+  };
+
+  // Monitor visibility changes (Backgrounding)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (isTransferring) {
+           addLog("⚠️ 警告: 浏览器已切换至后台，传输可能会中断！");
+        }
+      } else {
+        // Returned to foreground
+        if (isTransferring) {
+           addLog("应用回到前台，检查连接状态...");
+           if (!connRef.current || !connRef.current.open) {
+               addLog("❌ 发现连接在后台已断开");
+               setMessages(prev => prev.map(m => {
+                   if (m.status === 'transferring') {
+                       return { ...m, status: 'error' };
+                   }
+                   return m;
+               }));
+               setIsTransferring(false);
+               releaseWakeLock();
+               alert("传输中断：因为应用切换到了后台，连接已断开。");
+           }
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isTransferring]);
+
+  // Prevent closing tab while transferring
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isTransferring) {
+        e.preventDefault();
+        e.returnValue = ''; // Standard for Chrome
+        return '当前正在传输文件，确定要退出吗？';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isTransferring]);
 
   // --- HEARTBEAT ---
   const startHeartbeat = () => {
@@ -331,6 +405,8 @@ const App: React.FC = () => {
       addLog("对方断开了连接");
       setConnectionStatus('Disconnected');
       setIsConnecting(false);
+      setIsTransferring(false);
+      releaseWakeLock();
       stopHeartbeat();
       addSystemMessage("对方已断开连接");
     });
@@ -339,6 +415,8 @@ const App: React.FC = () => {
       addLog(`连接错误: ${err}`);
       setIsConnecting(false);
       setConnectionStatus('Disconnected');
+      setIsTransferring(false);
+      releaseWakeLock();
       addSystemMessage("连接发生错误");
     });
   };
@@ -385,6 +463,7 @@ const App: React.FC = () => {
           lastProgressUpdateRef.current = 0;
           
           setIsTransferring(true);
+          requestWakeLock(); // Request Wake Lock on Receive
 
           setMessages(prev => [...prev, {
             id: meta.id, 
@@ -464,6 +543,7 @@ const App: React.FC = () => {
             receivedChunksRef.current = [];
             receivedSizeRef.current = 0;
             setIsTransferring(false);
+            releaseWakeLock(); // Release Wake Lock when done
         }
     } catch (e) {
         console.error("Chunk processing error", e);
@@ -684,6 +764,7 @@ const App: React.FC = () => {
         connRef.current.send({ type: 'FILE_START', payload: meta });
         pendingFileTransferRef.current = file;
         setIsTransferring(true);
+        requestWakeLock(); // Lock screen on send start
         e.target.value = '';
     }
   };
@@ -699,8 +780,7 @@ const App: React.FC = () => {
           // Use a loop instead of recursion to avoid stack depth and reduce overhead
           while (offset < file.size) {
               if (!connRef.current || !connRef.current.open) {
-                  addLog("传输中断：连接已关闭");
-                  break;
+                  throw new Error("传输中断：连接已关闭");
               }
 
               // Backpressure Control:
@@ -729,7 +809,7 @@ const App: React.FC = () => {
                   const progress = Math.min((offset / file.size) * 100, 100);
                   
                   setMessages(prev => prev.map(m => {
-                      if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed') {
+                      if (m.fileMeta?.name === file.name && m.sender === 'me' && m.status !== 'completed' && m.status !== 'error') {
                           return { ...m, progress: progress };
                       }
                       return m;
@@ -755,9 +835,18 @@ const App: React.FC = () => {
       } catch (err: any) {
           console.error("Stream error", err);
           addLog("发送中断: " + err.message);
-          addSystemMessage("文件发送失败");
+          addSystemMessage(`文件 ${file.name} 发送失败: ${err.message}`);
+          
+          // Explicitly mark message as Error so the UI turns red
+          setMessages(prev => prev.map(m => {
+            if (m.fileMeta?.name === file.name && m.sender === 'me') {
+                return { ...m, status: 'error' };
+            }
+            return m;
+          }));
       } finally {
           setIsTransferring(false);
+          releaseWakeLock();
       }
   };
 
@@ -1061,6 +1150,7 @@ const App: React.FC = () => {
           {messages.map((msg, index) => {
               const isMe = msg.sender === 'me';
               const isSequence = index > 0 && messages[index - 1].sender === msg.sender;
+              const isError = msg.status === 'error';
               
               return (
                   <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isSequence ? 'mt-1' : 'mt-6'} animate-in slide-in-from-bottom-2 duration-300 group`}>
@@ -1072,9 +1162,11 @@ const App: React.FC = () => {
                       )}
 
                       <div className={`max-w-[85%] sm:max-w-[70%] shadow-md relative transition-all hover:shadow-lg ${
-                          isMe 
-                          ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white border border-indigo-400/20' 
-                          : 'bg-slate-800 text-slate-100 border border-slate-700/50'
+                          isError 
+                            ? 'bg-red-500/10 border-red-500/50 text-red-100' 
+                            : isMe 
+                              ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white border border-indigo-400/20' 
+                              : 'bg-slate-800 text-slate-100 border border-slate-700/50'
                       } ${
                           isMe 
                             ? (isSequence ? 'rounded-2xl rounded-tr-md' : 'rounded-2xl rounded-tr-sm') 
@@ -1086,10 +1178,10 @@ const App: React.FC = () => {
 
                               {/* File Content */}
                               {msg.type === 'file' && (
-                                  <div className={`w-full sm:w-72 rounded-xl p-3 ${isMe ? 'bg-indigo-800/30' : 'bg-slate-900/50'} border ${isMe ? 'border-indigo-400/20' : 'border-white/5'}`}>
+                                  <div className={`w-full sm:w-72 rounded-xl p-3 ${isError ? 'bg-red-900/20' : isMe ? 'bg-indigo-800/30' : 'bg-slate-900/50'} border ${isError ? 'border-red-500/30' : isMe ? 'border-indigo-400/20' : 'border-white/5'}`}>
                                       <div className="flex items-center gap-3 mb-3">
-                                          <div className={`p-2.5 rounded-lg shrink-0 ${isMe ? 'bg-indigo-500/20 text-white' : 'bg-slate-700 text-emerald-400'}`}>
-                                              <FileIcon size={20} />
+                                          <div className={`p-2.5 rounded-lg shrink-0 ${isError ? 'bg-red-500/20 text-red-400' : isMe ? 'bg-indigo-500/20 text-white' : 'bg-slate-700 text-emerald-400'}`}>
+                                              {isError ? <AlertTriangle size={20}/> : <FileIcon size={20} />}
                                           </div>
                                           <div className="overflow-hidden min-w-0 flex-1">
                                               <p className="font-bold truncate text-sm mb-0.5" title={msg.fileMeta?.name}>{msg.fileMeta?.name}</p>
@@ -1112,13 +1204,17 @@ const App: React.FC = () => {
                                                 </button>
                                             </a>
                                           )
+                                      ) : msg.status === 'error' ? (
+                                          <div className="text-xs flex items-center justify-center gap-1.5 opacity-90 font-bold text-red-300 bg-red-500/10 py-2 rounded-lg w-full border border-red-500/20">
+                                              <X size={14} /> 传输失败
+                                          </div>
                                       ) : (
                                           <div className="space-y-1.5">
                                               <div className="flex justify-between text-[10px] font-bold tracking-wide uppercase opacity-70">
                                                   <span>{msg.sender === 'me' ? 'Uploading...' : 'Downloading...'}</span>
                                                   <span>{msg.progress}%</span>
                                               </div>
-                                              <ProgressBar progress={msg.progress || 0} heightClass="h-1.5" colorClass={isMe ? "bg-white" : "bg-emerald-400"} />
+                                              <ProgressBar progress={msg.progress || 0} heightClass="h-1.5" colorClass={isError ? "bg-red-500" : isMe ? "bg-white" : "bg-emerald-400"} />
                                           </div>
                                       )}
                                   </div>
@@ -1128,7 +1224,7 @@ const App: React.FC = () => {
                           {/* Timestamp & Status */}
                           <div className={`text-[10px] flex items-center gap-1 absolute -bottom-5 ${isMe ? 'right-0' : 'left-0'} font-medium text-slate-500 transition-opacity ${isSequence ? 'opacity-0 group-hover:opacity-100' : 'opacity-60'}`}>
                               {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                              {isMe && <CheckCheck size={14} className={msg.status === 'completed' || msg.type === 'text' ? "text-indigo-400" : "text-slate-600"} />}
+                              {isMe && <CheckCheck size={14} className={msg.status === 'completed' || msg.type === 'text' ? "text-indigo-400" : msg.status === 'error' ? "text-red-500" : "text-slate-600"} />}
                           </div>
                       </div>
                   </div>
@@ -1140,6 +1236,14 @@ const App: React.FC = () => {
 
       {/* INPUT AREA */}
       <div className="p-3 md:p-5 pb-4 md:pb-5 bg-slate-900/90 border-t border-white/5 backdrop-blur-xl z-20 safe-area-bottom">
+          {isTransferring && (
+            <div className="mb-3 animate-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
+                    <span className="flex items-center gap-2"><Smartphone size={14}/> 传输中请保持屏幕常亮</span>
+                    <span className="animate-pulse">不要切换应用</span>
+                </div>
+            </div>
+          )}
           <div className="flex items-end gap-2 md:gap-3 relative">
               <input 
                   type="file" 
@@ -1185,13 +1289,6 @@ const App: React.FC = () => {
                   {isTransferring ? <Loader2 size={20} className="animate-spin md:w-[22px] md:h-[22px]" /> : <ArrowUpCircle size={22} className="md:w-[24px] md:h-[24px]" />}
               </button>
           </div>
-          {isTransferring && (
-            <div className="text-center mt-3 animate-pulse">
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-bold border border-amber-500/20">
-                    <Activity size={12}/> 请保持页面开启，传输中...
-                </span>
-            </div>
-          )}
       </div>
     </div>
   );
