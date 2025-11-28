@@ -1,10 +1,24 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>NexusDrop P2P</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              slate: {
+                850: '#1e293b', 
+              }
+            }
+          }
+        }
+      }
+    </script>
     <!-- 使用 BootCDN 国内镜像，解决 unpkg.com 访问慢或无法访问的问题 -->
     <script src="https://cdn.bootcdn.net/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -12,10 +26,19 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
+        /* Default to light mode colors, overridden by .dark class on html */
+        background-color: #f8fafc;
+        color: #0f172a;
+        overflow-x: hidden;
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+      
+      /* Dark mode overrides handled by Tailwind 'dark:' class mostly, but strictly for body: */
+      .dark body {
         background-color: #020617;
         color: #f8fafc;
-        overflow-x: hidden;
       }
+
       /* Custom scrollbar */
       ::-webkit-scrollbar {
         width: 6px;
@@ -24,29 +47,43 @@
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155;
+        background: #94a3b8;
         border-radius: 10px;
       }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #334155;
+      }
       ::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
         background: #475569;
       }
       
       .glass-panel {
-        background: rgba(15, 23, 42, 0.75);
+        /* Base glass effect, color determined by utility classes */
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+      }
+      .dark .glass-panel {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
       }
 
       .tech-grid {
         background-size: 50px 50px;
         background-image: 
-          linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+          linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
         mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 100%);
         -webkit-mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 100%);
         pointer-events: none;
+      }
+      .dark .tech-grid {
+        background-image: 
+          linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
       }
       
       @keyframes float {
