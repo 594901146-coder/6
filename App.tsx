@@ -33,7 +33,8 @@ import {
   Maximize,
   Minimize,
   Sun,
-  Moon
+  Moon,
+  Type
 } from 'lucide-react';
 
 // --- ICONS ---
@@ -84,7 +85,7 @@ const App: React.FC = () => {
   
   // UX State
   const [isGeneratingId, setIsGeneratingId] = useState(false);
-  const [showQr, setShowQr] = useState(false);
+  const [showTextCode, setShowTextCode] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -707,7 +708,7 @@ const App: React.FC = () => {
      setIsTransferring(false);
      setRetryCount(0);
      setIsGeneratingId(false);
-     setShowQr(false);
+     setShowTextCode(false); // Reset to QR view
      setIsScanning(false);
      // Note: we keep logs for debug, but you could setLogs([]) if preferred
   }, []);
@@ -717,7 +718,7 @@ const App: React.FC = () => {
     setAppState(AppState.SETUP); // Switch UI immediately
     setRole('sender');
     setIsGeneratingId(true);
-    setShowQr(false);
+    setShowTextCode(false); // Default to QR view
     setErrorMsg('');
     setLogs([]); // Start fresh logs
     
@@ -1085,46 +1086,59 @@ const App: React.FC = () => {
       {role === 'sender' ? (
         <div className="space-y-6">
            {/* Rounded-2xl -> Rounded-[30px] */}
-           <div className="bg-slate-100 dark:bg-slate-950/50 p-6 rounded-[30px] border border-dashed border-slate-300 dark:border-slate-700 text-center relative group transition-colors">
-            <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[30px]"></div>
-            <p className="text-xs text-indigo-500 dark:text-indigo-400 mb-3 uppercase tracking-widest font-bold">ROOM CODE</p>
-            <div className="flex items-center justify-center gap-2 mb-4">
-                {isGeneratingId ? (
-                    <Loader2 className="animate-spin text-slate-400 dark:text-white w-8 h-8" />
-                ) : (
-                    <span className="text-3xl md:text-4xl font-mono font-bold text-slate-900 dark:text-white tracking-tight drop-shadow-[0_0_15px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] select-all break-all">
-                        {peerId || '...'}
-                    </span>
-                )}
-            </div>
-            {peerId && (
-                <div className="flex justify-center gap-3">
-                    <button 
-                        onClick={() => {
-                            navigator.clipboard.writeText(peerId);
-                            const btn = document.getElementById('copy-btn');
-                            if(btn) { btn.innerHTML = '已复制'; setTimeout(() => btn.innerHTML = '复制口令', 1000); }
-                        }} 
-                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-sm font-bold transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
-                    >
-                        <Copy size={16} /> <span id="copy-btn">复制口令</span>
-                    </button>
-                    <button 
-                        onClick={() => setShowQr(!showQr)} 
-                        className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold transition-all border ${showQr ? 'bg-white text-slate-900 border-white' : 'bg-transparent text-slate-500 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
-                    >
-                        <QrCode size={16} /> 二维码
-                    </button>
+           <div className="bg-slate-100 dark:bg-slate-950/50 p-8 rounded-[30px] border border-dashed border-slate-300 dark:border-slate-700 text-center relative group transition-colors flex flex-col items-center justify-center min-h-[320px]">
+             <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[30px]"></div>
+             
+             {isGeneratingId ? (
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="animate-spin text-slate-400 dark:text-white w-10 h-10" />
+                    <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">正在创建加密房间...</p>
                 </div>
-            )}
-            
-            <div className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${showQr ? 'max-h-64 mt-6' : 'max-h-0'}`}>
-                <div className="flex flex-col items-center">
-                    <div className="bg-white p-3 rounded-3xl shadow-xl">
-                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-36 h-36 md:w-40 md:h-40 mix-blend-multiply" />
+             ) : (
+                <>
+                  {!showTextCode ? (
+                    // --- QR MODE (DEFAULT) ---
+                    <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+                        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6">
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-48 h-48 md:w-56 md:h-56 mix-blend-multiply" />
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">使用另一台设备扫描连接</p>
+                        <button 
+                            onClick={() => setShowTextCode(true)}
+                            className="flex items-center gap-2 px-6 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-full text-sm font-bold transition-all border border-slate-300 dark:border-slate-700"
+                        >
+                            <Type size={18} /> 显示文字口令
+                        </button>
                     </div>
-                </div>
-            </div>
+                  ) : (
+                    // --- TEXT MODE ---
+                    <div className="flex flex-col items-center w-full animate-in fade-in zoom-in duration-300">
+                        <p className="text-xs text-indigo-500 dark:text-indigo-400 mb-4 uppercase tracking-widest font-bold">ROOM CODE</p>
+                        <span className="text-4xl md:text-5xl font-mono font-bold text-slate-900 dark:text-white tracking-tight mb-8 drop-shadow-sm select-all break-all text-center">
+                            {peerId || '...'}
+                        </span>
+                        <div className="flex flex-col md:flex-row gap-3 w-full justify-center">
+                            <button 
+                                onClick={() => {
+                                    navigator.clipboard.writeText(peerId);
+                                    const btn = document.getElementById('copy-btn');
+                                    if(btn) { btn.innerHTML = '已复制'; setTimeout(() => btn.innerHTML = '复制口令', 1000); }
+                                }} 
+                                className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-sm font-bold transition-all shadow-lg shadow-indigo-500/25"
+                            >
+                                <Copy size={18} /> <span id="copy-btn">复制口令</span>
+                            </button>
+                            <button 
+                                onClick={() => setShowTextCode(false)} 
+                                className="flex items-center justify-center gap-2 px-8 py-3 rounded-full text-sm font-bold transition-all border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                                <QrCode size={18} /> 二维码
+                            </button>
+                        </div>
+                    </div>
+                  )}
+                </>
+             )}
            </div>
            
            <div className="flex items-center justify-center gap-3 py-2 text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-slate-800/30 rounded-full px-6 w-fit mx-auto border border-slate-300/50 dark:border-slate-700/50">
@@ -1146,28 +1160,29 @@ const App: React.FC = () => {
              </div>
            ) : (
              <>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                    <Lock size={18} />
-                  </div>
-                  {/* Rounded-xl -> Rounded-full */}
-                  <input 
-                    type="text" 
-                    value={targetPeerId}
-                    onChange={(e) => {
-                        setTargetPeerId(e.target.value);
-                        if(errorMsg) setErrorMsg(''); 
-                    }}
-                    placeholder="输入房间口令"
-                    className={`w-full bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-12 pr-14 py-4 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-base md:text-lg transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-600`}
-                  />
-                  <button 
-                    onClick={() => setIsScanning(true)} 
-                    className="absolute inset-y-2 right-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center justify-center" 
-                    title="扫码"
-                  >
-                    <ScanLine size={20} />
-                  </button>
+                <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                        <Lock size={18} />
+                      </div>
+                      <input 
+                        type="text" 
+                        value={targetPeerId}
+                        onChange={(e) => {
+                            setTargetPeerId(e.target.value);
+                            if(errorMsg) setErrorMsg(''); 
+                        }}
+                        placeholder="输入房间口令"
+                        className={`w-full bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-12 pr-6 py-4 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none font-mono text-base md:text-lg transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-600`}
+                      />
+                    </div>
+                    <button 
+                        onClick={() => setIsScanning(true)} 
+                        className={`aspect-square h-auto shrink-0 bg-slate-50 dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-full text-slate-500 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors flex items-center justify-center shadow-sm`} 
+                        title="扫码"
+                    >
+                        <ScanLine size={24} />
+                    </button>
                 </div>
                 
                 {errorMsg && (
