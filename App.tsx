@@ -47,13 +47,6 @@ const NexusLogo = ({ className = "", size = 40 }: { className?: string, size?: n
         <stop offset="100%" stopColor="#a855f7" /> {/* Purple-500 */}
       </linearGradient>
     </defs>
-    
-    {/* 
-       Minimalist Nexus Drop 
-       - Removed the background squircle box for a cleaner, integrated look.
-       - A solid gradient teardrop representing "Drop".
-       - A negative space circle in the center representing "Core/Node".
-    */}
     <path 
       fillRule="evenodd" 
       clipRule="evenodd" 
@@ -197,7 +190,6 @@ const App: React.FC = () => {
   };
 
   const attemptAutoFullScreen = () => {
-    // Only auto-trigger on mobile devices to improve immersion
     if (window.innerWidth < 768 && !document.fullscreenElement) {
         toggleFullScreen();
     }
@@ -228,7 +220,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Monitor visibility changes (Backgrounding)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -236,7 +227,6 @@ const App: React.FC = () => {
            addLog("⚠️ 警告: 浏览器已切换至后台，传输可能会中断！");
         }
       } else {
-        // Returned to foreground
         if (isTransferring) {
            addLog("应用回到前台，检查连接状态...");
            if (!connRef.current || !connRef.current.open) {
@@ -261,12 +251,11 @@ const App: React.FC = () => {
     };
   }, [isTransferring]);
 
-  // Prevent closing tab while transferring
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isTransferring) {
         e.preventDefault();
-        e.returnValue = ''; // Standard for Chrome
+        e.returnValue = ''; 
         return '当前正在传输文件，确定要退出吗？';
       }
     };
@@ -279,14 +268,13 @@ const App: React.FC = () => {
     stopHeartbeat();
     heartbeatRef.current = setInterval(() => {
       if (connRef.current && connRef.current.open) {
-        // Send a tiny packet to keep NAT mapping alive
         try {
             connRef.current.send({ type: 'PING' });
         } catch (e) {
             console.warn("Heartbeat failed", e);
         }
       }
-    }, 4000); // 4 seconds
+    }, 4000); 
   };
 
   const stopHeartbeat = () => {
@@ -296,7 +284,6 @@ const App: React.FC = () => {
   // --- SCANNER LOGIC ---
   useEffect(() => {
     if (isScanning && !scannerRef.current) {
-      // Delay slightly to ensure DOM is ready
       const timer = setTimeout(() => {
         const startScanner = async () => {
           if (typeof window.Html5Qrcode === 'undefined') {
@@ -309,19 +296,15 @@ const App: React.FC = () => {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
             
-            // Rebuilt Configuration for Maximum Accuracy on Mobile
-            // 1. Calculate the aspect ratio of the screen to minimize black bars
             const aspectRatio = window.innerWidth / window.innerHeight;
 
             const config = { 
-              fps: 15, // Increased FPS for smoother preview
+              fps: 15, 
               qrbox: { width: 250, height: 250 }, 
-              aspectRatio: aspectRatio, // Pass screen aspect ratio
+              aspectRatio: aspectRatio, 
               disableFlip: false,
               videoConstraints: {
                   facingMode: "environment",
-                  // Requesting HD resolution is critical for good detection
-                  // We also try to match the screen's aspect ratio in the request
                   aspectRatio: aspectRatio,
                   width: { min: 640, ideal: 1280, max: 1920 },
                   height: { min: 480, ideal: 720, max: 1080 },
@@ -340,9 +323,7 @@ const App: React.FC = () => {
                   connectToTarget(cleanId);
                 }
               },
-              (errorMessage: string) => {
-                  // Ignore parse errors, they happen every frame no QR is found
-              } 
+              (errorMessage: string) => {} 
             );
           } catch (err) {
             console.warn("Scanner error:", err);
@@ -380,12 +361,11 @@ const App: React.FC = () => {
         return peerRef.current;
     }
     
-    // Safety check for library loading
     if (typeof window.Peer === 'undefined') {
       const msg = "PeerJS 组件尚未加载完成，请检查网络连接 (CDN)";
       setErrorMsg(msg);
       addLog("CRITICAL ERROR: window.Peer is undefined");
-      setShowLogs(true); // Auto-show logs on critical error
+      setShowLogs(true);
       return null;
     }
 
@@ -393,19 +373,17 @@ const App: React.FC = () => {
       setServerStatus('connecting');
       addLog(`正在初始化 P2P 节点 (ID: ${id || '自动生成'})...`);
       
-      // Auto-detect secure requirement (Localhost usually HTTP, Vercel is HTTPS)
       const isSecure = window.location.protocol === 'https:';
 
       const peer = new window.Peer(id, {
         debug: 1,
         secure: isSecure, 
         config: {
-          // Optimized list for China & Global
           iceServers: [
-             { urls: 'stun:stun.chat.bilibili.com:3478' }, // Bilibili (China Strong)
-             { urls: 'stun:stun.miwifi.com' },             // Xiaomi (China Strong)
-             { urls: 'stun:stun.qq.com:3478' },            // Tencent (China Strong)
-             { urls: 'stun:stun.l.google.com:19302' }      // Google (Global)
+             { urls: 'stun:stun.chat.bilibili.com:3478' },
+             { urls: 'stun:stun.miwifi.com' },
+             { urls: 'stun:stun.qq.com:3478' },
+             { urls: 'stun:stun.l.google.com:19302' }
           ],
           iceCandidatePoolSize: 10,
         }
@@ -426,7 +404,6 @@ const App: React.FC = () => {
       peer.on('disconnected', () => {
         addLog("⚠️ 与信令服务器断开连接 (可能网络不稳定)");
         setServerStatus('disconnected');
-        // Note: We DO NOT destroy the peer here. P2P connections might still be alive.
       });
 
       peer.on('close', () => {
@@ -448,7 +425,7 @@ const App: React.FC = () => {
         else if (err.type === 'browser-incompatible') msg = "您的浏览器不支持 WebRTC";
         
         setErrorMsg(msg);
-        setShowLogs(true); // Auto-show logs on error
+        setShowLogs(true);
       });
 
       peerRef.current = peer;
@@ -463,7 +440,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleConnection = (conn: any) => {
-    // Clean up existing connection if any
     if (connRef.current) {
         addLog("关闭旧连接，接受新连接...");
         connRef.current.close();
@@ -473,13 +449,11 @@ const App: React.FC = () => {
     
     conn.on('open', () => {
       addLog(`✅ 数据通道已打开! 对方: ${conn.peer}`);
-      // Don't set 'Connected' immediately, verify with PING
       conn.send({ type: 'PING' });
       startHeartbeat();
     });
 
     conn.on('data', (data: any) => {
-      // PING/PONG Handling for connection verification
       if (data && data.type === 'PING') {
           conn.send({ type: 'PONG' });
           return;
@@ -491,7 +465,7 @@ const App: React.FC = () => {
               setIsConnecting(false);
               setErrorMsg('');
               setAppState(AppState.CHAT);
-              attemptAutoFullScreen(); // Trigger Fullscreen on connection success
+              attemptAutoFullScreen(); 
           }
           return;
       }
@@ -522,7 +496,6 @@ const App: React.FC = () => {
   // --- DATA HANDLING ---
   
   const handleIncomingData = (data: any) => {
-    // Robust binary check
     const isBinary = 
         data instanceof ArrayBuffer || 
         data instanceof Uint8Array || 
@@ -561,7 +534,7 @@ const App: React.FC = () => {
           lastProgressUpdateRef.current = 0;
           
           setIsTransferring(true);
-          requestWakeLock(); // Request Wake Lock on Receive
+          requestWakeLock(); 
 
           setMessages(prev => [...prev, {
             id: meta.id, 
@@ -573,7 +546,6 @@ const App: React.FC = () => {
             timestamp: Date.now()
           }]);
           
-          // Ack to start stream
           setTimeout(() => {
              if(connRef.current && connRef.current.open) {
                  addLog("发送 ACK_FILE_START");
@@ -614,7 +586,6 @@ const App: React.FC = () => {
         const progress = Math.min(Math.round((receivedSizeRef.current / total) * 100), 100);
         const now = Date.now();
 
-        // Throttle UI updates to max 10fps (every 100ms) to keep main thread free for data processing
         if (now - lastProgressUpdateRef.current > 100 || progress >= 100) {
             lastProgressUpdateRef.current = now;
             setMessages(prev => prev.map(m => {
@@ -641,7 +612,7 @@ const App: React.FC = () => {
             receivedChunksRef.current = [];
             receivedSizeRef.current = 0;
             setIsTransferring(false);
-            releaseWakeLock(); // Release Wake Lock when done
+            releaseWakeLock(); 
         }
     } catch (e) {
         console.error("Chunk processing error", e);
@@ -664,7 +635,7 @@ const App: React.FC = () => {
   const waitForPeerJS = async (): Promise<boolean> => {
       if (typeof window.Peer !== 'undefined') return true;
       addLog("等待 PeerJS 加载...");
-      for (let i = 0; i < 20; i++) { // Wait up to 2 seconds
+      for (let i = 0; i < 20; i++) { 
           await new Promise(r => setTimeout(r, 100));
           if (typeof window.Peer !== 'undefined') {
               addLog("PeerJS 加载完成");
@@ -674,34 +645,24 @@ const App: React.FC = () => {
       return false;
   };
 
-  // RESET FUNCTION - REPLACES RELOAD
   const resetToHome = useCallback(() => {
      addLog("正在断开连接并返回首页...");
-     
-     // 1. Close Data Connection
      if(connRef.current) {
          connRef.current.close();
          connRef.current = null;
      }
-     
-     // 2. Destroy Peer
      if(peerRef.current) {
          peerRef.current.destroy();
          peerRef.current = null;
      }
-     
-     // 3. Stop Scanner
      if(scannerRef.current) {
          scannerRef.current.stop().catch(() => {});
          scannerRef.current = null;
      }
-     
-     // 4. Clear Timers
      stopHeartbeat();
      releaseWakeLock();
      if(connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
      
-     // 5. Reset State
      setAppState(AppState.HOME);
      setRole(null);
      setPeerId('');
@@ -714,21 +675,19 @@ const App: React.FC = () => {
      setIsTransferring(false);
      setRetryCount(0);
      setIsGeneratingId(false);
-     setShowTextCode(false); // Reset to QR view
+     setShowTextCode(false); 
      setIsScanning(false);
-     // Note: we keep logs for debug, but you could setLogs([]) if preferred
   }, []);
 
   const startRoom = async () => {
     attemptAutoFullScreen();
-    setAppState(AppState.SETUP); // Switch UI immediately
+    setAppState(AppState.SETUP); 
     setRole('sender');
     setIsGeneratingId(true);
-    setShowTextCode(false); // Default to QR view
+    setShowTextCode(false); 
     setErrorMsg('');
-    setLogs([]); // Start fresh logs
+    setLogs([]); 
     
-    // Ensure cleanup of any previous session
     if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
@@ -759,10 +718,9 @@ const App: React.FC = () => {
     setAppState(AppState.SETUP);
     setRole('receiver');
     setErrorMsg('');
-    setLogs([]); // Start fresh logs
+    setLogs([]); 
     addLog("初始化接收端...");
     
-    // Ensure cleanup of any previous session
     if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
@@ -774,7 +732,6 @@ const App: React.FC = () => {
         return;
     }
 
-    // Auto-generate local ID for receiver
     const localId = `recv-${Math.floor(Math.random() * 100000)}`;
     initializePeer(localId); 
   };
@@ -818,11 +775,9 @@ const App: React.FC = () => {
     
     addLog(`🚀 发起连接 -> 目标: ${target} ${isRetry ? '(重试)' : ''}`);
     
-    // Close old
     if (connRef.current) connRef.current.close();
     if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
 
-    // Force strict reliable mode without serialization option (defaults to binary)
     try {
         const conn = peerRef.current.connect(target, { 
             reliable: true 
@@ -832,12 +787,10 @@ const App: React.FC = () => {
         
         handleConnection(conn);
 
-        // Connection Timeout Logic
         connectionTimeoutRef.current = setTimeout(() => {
             if (isConnecting && connectionStatus !== 'Connected') {
                  addLog("连接超时 (10s)");
                  
-                 // Retry Logic
                  if (retryCount < 2) {
                      setRetryCount(prev => prev + 1);
                      addLog(`自动重试连接 (${retryCount + 1}/3)...`);
@@ -848,7 +801,7 @@ const App: React.FC = () => {
                      if (connRef.current) connRef.current.close();
                  }
             }
-        }, 8000); // 8s timeout per attempt
+        }, 8000); 
 
     } catch (e: any) {
         console.error("Connect exception:", e);
@@ -861,7 +814,6 @@ const App: React.FC = () => {
   const sendMessage = () => {
     if (!inputText.trim()) return;
     
-    // Robust checking for P2P connection even if signaling is down
     if (!connRef.current) {
         alert("错误：P2P 连接对象不存在");
         return;
@@ -870,7 +822,6 @@ const App: React.FC = () => {
     if (!connRef.current.open) {
         addLog("尝试发送消息，但连接状态未 OPEN");
         alert("连接似乎已断开，无法发送消息");
-        // Don't return, try anyway just in case UI is stale
     }
     
     try {
@@ -929,46 +880,35 @@ const App: React.FC = () => {
         connRef.current.send({ type: 'FILE_START', payload: meta });
         pendingFileTransferRef.current = file;
         setIsTransferring(true);
-        requestWakeLock(); // Lock screen on send start
+        requestWakeLock(); 
         e.target.value = '';
     }
   };
 
-  // High Performance File Streamer
   const streamFile = async (file: File) => {
-      // Chunk size optimized for throughput (64KB)
       const chunkSize = 64 * 1024; 
       let offset = 0;
       let lastUpdate = 0;
       
       try {
-          // Use a loop instead of recursion to avoid stack depth and reduce overhead
           while (offset < file.size) {
               if (!connRef.current || !connRef.current.open) {
                   throw new Error("传输中断：连接已关闭");
               }
 
-              // Backpressure Control:
-              // If the WebRTC buffer is full (>16MB), wait for it to drain.
-              // This prevents browser crashes while still allowing high speed.
               const channel = connRef.current.dataChannel;
               if (channel && channel.bufferedAmount > 16 * 1024 * 1024) {
-                  // Wait 50ms and try again
                   await new Promise(r => setTimeout(r, 50));
                   continue;
               }
 
-              // Read chunk as ArrayBuffer
-              // Using await file.slice().arrayBuffer() is cleaner and usually faster than FileReader
               const slice = file.slice(offset, offset + chunkSize);
               const buffer = await slice.arrayBuffer();
               
               connRef.current.send(buffer);
               offset += chunkSize;
 
-              // Throttled UI Updates
               const now = Date.now();
-              // Update only every 100ms OR when finished to keep UI responsive
               if (now - lastUpdate > 100 || offset >= file.size) {
                   lastUpdate = now;
                   const progress = Math.min((offset / file.size) * 100, 100);
@@ -981,12 +921,9 @@ const App: React.FC = () => {
                   }));
               }
               
-              // Yield to main thread briefly (0ms) to allow UI updates and events to fire
-              // This is critical for keeping the browser responsive during heavy transfers
               await new Promise(r => setTimeout(r, 0));
           }
 
-          // Complete
           if (offset >= file.size) {
               addLog("文件发送完成");
               setMessages(prev => prev.map(m => {
@@ -1002,7 +939,6 @@ const App: React.FC = () => {
           addLog("发送中断: " + err.message);
           addSystemMessage(`文件 ${file.name} 发送失败: ${err.message}`);
           
-          // Explicitly mark message as Error so the UI turns red
           setMessages(prev => prev.map(m => {
             if (m.fileMeta?.name === file.name && m.sender === 'me') {
                 return { ...m, status: 'error' };
@@ -1015,8 +951,6 @@ const App: React.FC = () => {
       }
   };
 
-  // --- RENDERERS ---
-
   const renderHome = () => (
     <div className="flex flex-col md:flex-row gap-6 md:gap-8 max-w-5xl w-full animate-in fade-in slide-in-from-bottom-8 duration-700 items-center justify-center">
       <div 
@@ -1024,7 +958,7 @@ const App: React.FC = () => {
         className="group cursor-pointer relative w-full md:w-[420px]"
       >
         <div className="absolute inset-0 bg-indigo-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
-        <div className="glass-panel w-full md:min-h-[360px] rounded-[30px] md:rounded-[40px] p-6 md:p-8 flex flex-col items-center justify-center md:justify-start text-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-indigo-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]">
+        <div className="glass-panel w-full md:min-h-[360px] rounded-[30px] md:rounded-[40px] p-8 flex flex-col items-center justify-center md:justify-start text-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-indigo-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]">
           <div className="w-16 h-16 md:w-24 md:h-24 mb-4 md:mb-6 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-indigo-100 dark:border-indigo-500/20 shrink-0">
              <Wifi className="w-8 h-8 md:w-12 md:h-12 text-indigo-500" />
           </div>
@@ -1043,7 +977,7 @@ const App: React.FC = () => {
         className="group cursor-pointer relative w-full md:w-[420px]"
       >
         <div className="absolute inset-0 bg-emerald-500/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full"></div>
-        <div className="glass-panel w-full md:min-h-[360px] rounded-[30px] md:rounded-[40px] p-6 md:p-8 flex flex-col items-center justify-center md:justify-start text-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-emerald-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+        <div className="glass-panel w-full md:min-h-[360px] rounded-[30px] md:rounded-[40px] p-8 flex flex-col items-center justify-center md:justify-start text-center border border-slate-200 dark:border-white/5 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 hover:border-emerald-500/50 shadow-2xl transition-all duration-300 hover:-translate-y-2 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.2)]">
           <div className="w-16 h-16 md:w-24 md:h-24 mb-4 md:mb-6 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-emerald-100 dark:border-emerald-500/20 shrink-0">
             <Download className="w-8 h-8 md:w-12 md:h-12 text-emerald-500" />
           </div>
@@ -1061,7 +995,6 @@ const App: React.FC = () => {
 
   const renderSetup = () => (
     <div className="glass-panel p-6 md:p-8 rounded-[40px] max-w-lg w-full animate-in slide-in-from-bottom-8 duration-500 relative border border-slate-200 dark:border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl">
-      {/* Consolidated Header with Toolbar */}
       <div className="flex justify-between items-start mb-6 md:mb-8">
         <div className="flex items-center gap-3 md:gap-4">
              <div className={`p-2.5 md:p-3 rounded-2xl ${role === 'sender' ? 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-500 dark:text-indigo-400' : 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'}`}>
@@ -1073,7 +1006,6 @@ const App: React.FC = () => {
              </div>
         </div>
 
-        {/* Toolbar Group */}
         <div className="flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800/60 p-1 rounded-full border border-slate-300/50 dark:border-white/5 backdrop-blur-sm">
            <button onClick={() => setShowLogs(!showLogs)} className={`p-2 rounded-full transition-colors ${showLogs ? 'text-indigo-500 dark:text-indigo-400 bg-indigo-500/10 dark:bg-indigo-500/20' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10'}`} title="查看系统日志">
                <Terminal size={16} className="md:w-[18px] md:h-[18px]" />
@@ -1091,7 +1023,6 @@ const App: React.FC = () => {
 
       {role === 'sender' ? (
         <div className="space-y-6">
-           {/* Rounded-2xl -> Rounded-[30px] */}
            <div className="bg-slate-100 dark:bg-slate-950/50 p-8 rounded-[30px] border border-dashed border-slate-300 dark:border-slate-700 text-center relative group transition-colors flex flex-col items-center justify-center min-h-[320px]">
              <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[30px]"></div>
              
@@ -1103,7 +1034,6 @@ const App: React.FC = () => {
              ) : (
                 <>
                   {!showTextCode ? (
-                    // --- QR MODE (DEFAULT) ---
                     <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
                         <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6">
                             <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-48 h-48 md:w-56 md:h-56 mix-blend-multiply" />
@@ -1117,7 +1047,6 @@ const App: React.FC = () => {
                         </button>
                     </div>
                   ) : (
-                    // --- TEXT MODE ---
                     <div className="flex flex-col items-center w-full animate-in fade-in zoom-in duration-300">
                         <p className="text-xs text-indigo-500 dark:text-indigo-400 mb-4 uppercase tracking-widest font-bold">ROOM CODE</p>
                         <span className="text-4xl md:text-5xl font-mono font-bold text-slate-900 dark:text-white tracking-tight mb-8 drop-shadow-sm select-all break-all text-center">
@@ -1157,7 +1086,6 @@ const App: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-           {/* Connection readiness check */}
            {!peerId ? (
              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/50 rounded-[30px] border border-dashed border-slate-300 dark:border-slate-700/50">
                <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
@@ -1243,9 +1171,7 @@ const App: React.FC = () => {
                 90% { opacity: 1; }
                 100% { transform: translateY(16rem); opacity: 0; }
               }
-              /* Hide the default HTML5-QRCode buttons if they appear */
               #reader button { display: none; }
-              /* Force video to center and contain within aspect ratio logic */
               #reader video { 
                  width: 100% !important; 
                  height: 100% !important; 
@@ -1253,24 +1179,19 @@ const App: React.FC = () => {
               }
             `}</style>
             
-            {/* Camera Feed Container */}
             <div id="reader" className="w-full h-full flex items-center justify-center bg-black"></div>
 
-            {/* Dark Overlay Mask */}
             <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
                <div className="w-64 h-64 md:w-72 md:h-72 border-2 border-white/20 rounded-[40px] shadow-[0_0_0_9999px_rgba(0,0,0,0.85)] relative">
-                  {/* Corner Accents */}
                   <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-[30px] -mt-0.5 -ml-0.5"></div>
                   <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-[30px] -mt-0.5 -mr-0.5"></div>
                   <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-500 rounded-bl-[30px] -mb-0.5 -ml-0.5"></div>
                   <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-500 rounded-br-[30px] -mb-0.5 -mr-0.5"></div>
                   
-                  {/* Scanning Laser Line */}
                   <div className="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-emerald-500/0 via-emerald-500/20 to-emerald-500/0 animate-[scanner-line_2s_linear_infinite] border-b-2 border-emerald-400/50 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
                </div>
             </div>
 
-            {/* Top Bar */}
             <div className="absolute top-0 left-0 w-full p-6 pt-14 md:pt-6 z-20 flex justify-between items-start">
                 <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 text-white font-medium">
                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
@@ -1285,6 +1206,314 @@ const App: React.FC = () => {
             </div>
         </div>
       )}
+
+      {/* RENDER CHAT / ERROR / HOME */}
+      {appState === AppState.CHAT && renderChat()}
+      {appState === AppState.ERROR && (
+        <div className="glass-panel p-10 rounded-[40px] max-w-md w-full text-center border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.2)] bg-white/80 dark:bg-slate-900/80">
+            <div className="w-24 h-24 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+                <AlertTriangle className="w-12 h-12 text-red-500" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">连接中断</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-sm">{errorMsg}</p>
+            <Button variant="secondary" onClick={() => window.location.reload()} className="w-full">重新加载</Button>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderChat = () => (
+    <div className="w-full h-[100dvh] md:h-[85vh] md:max-w-3xl flex flex-col glass-panel md:rounded-[40px] rounded-none overflow-hidden shadow-2xl md:shadow-black/50 animate-in fade-in zoom-in-95 duration-500 md:border border-slate-200 dark:border-white/10 bg-slate-50 md:bg-white/50 dark:bg-[#020617] md:dark:bg-transparent">
+      {/* CHAT HEADER */}
+      <div className="p-4 md:p-5 bg-white/90 dark:bg-slate-900/80 border-b border-slate-200 dark:border-white/5 flex justify-between items-center backdrop-blur-xl relative z-20 pt-safe-top transition-colors">
+         <div className="flex items-center gap-3 md:gap-4">
+             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-[20px] flex items-center justify-center text-white font-bold shadow-lg ${role === 'sender' ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-indigo-500/20' : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20'}`}>
+                 {role === 'sender' ? <Wifi size={20} className="md:w-6 md:h-6" /> : <Download size={20} className="md:w-6 md:h-6" />}
+             </div>
+             <div>
+                 <h3 className="font-bold text-slate-800 dark:text-white text-base md:text-lg tracking-tight">加密传输通道</h3>
+                 <div className="flex items-center gap-2 mt-0.5">
+                     {connectionStatus === 'Connected' ? (
+                        <>
+                           <span className={`relative flex h-2 w-2 md:h-2.5 md:w-2.5`}>
+                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                             <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-emerald-500"></span>
+                           </span>
+                           <span className="text-[10px] md:text-xs text-emerald-600 dark:text-emerald-400 font-medium tracking-wide uppercase">Direct P2P Link</span>
+                        </>
+                     ) : (
+                        <>
+                           <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-red-500"></span>
+                           <span className="text-[10px] md:text-xs text-red-500 dark:text-red-400 font-medium tracking-wide uppercase">Connection Lost</span>
+                        </>
+                     )}
+                 </div>
+             </div>
+         </div>
+         <div className="flex gap-2">
+             <button onClick={toggleFullScreen} className="md:hidden p-2 hover:bg-slate-200 dark:hover:bg-white/5 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all border border-transparent" title={isFullscreen ? "退出全屏" : "全屏"}>
+                 {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+             </button>
+             <button onClick={resetToHome} className="p-2 md:p-3 hover:bg-slate-200 dark:hover:bg-white/5 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all border border-transparent" title="断开连接">
+                 <X size={20} />
+             </button>
+         </div>
+      </div>
+
+      {/* CHAT MESSAGES AREA */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth bg-transparent relative">
+          <div className="absolute inset-0 opacity-5 dark:opacity-5 pointer-events-none" style={{backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+
+          {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full opacity-50 animate-in fade-in duration-1000">
+                  <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-200 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-slate-300 dark:border-white/5">
+                    <ShieldCheck className="w-10 h-10 md:w-12 md:h-12 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="text-slate-500 dark:text-slate-300 font-medium text-lg">通道已建立</p>
+                  <p className="text-slate-400 dark:text-slate-500 text-sm mt-2 max-w-xs text-center">所有数据通过 WebRTC P2P 协议端到端加密传输，不经过第三方服务器。</p>
+              </div>
+          )}
+          
+          <div className="space-y-1">
+          {messages.map((msg, index) => {
+              const isMe = msg.sender === 'me';
+              const isSequence = index > 0 && messages[index - 1].sender === msg.sender;
+              const isError = msg.status === 'error';
+              
+              return (
+                  <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isSequence ? 'mt-1' : 'mt-6'} animate-in slide-in-from-bottom-2 duration-300 group`}>
+                      
+                      {!isMe && (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mr-2 md:mr-3 border border-slate-200 dark:border-white/10 shadow-sm transition-opacity ${isSequence ? 'opacity-0' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                           {!isSequence && <User size={14} />}
+                        </div>
+                      )}
+
+                      <div className={`max-w-[85%] sm:max-w-[70%] shadow-md relative transition-all hover:shadow-lg ${
+                          isError 
+                            ? 'bg-red-100 dark:bg-red-500/10 border-red-200 dark:border-red-500/50 text-red-800 dark:text-red-100' 
+                            : isMe 
+                              ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white border border-indigo-400/20' 
+                              : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700/50'
+                      } ${
+                          isMe 
+                            ? (isSequence ? 'rounded-[24px] rounded-tr-md' : 'rounded-[24px] rounded-tr-sm') 
+                            : (isSequence ? 'rounded-[24px] rounded-tl-md' : 'rounded-[24px] rounded-tl-sm')
+                      }`}>
+                          <div className={`${msg.type === 'file' ? 'p-2' : 'px-4 py-3 md:px-5 md:py-3.5'}`}>
+                              {msg.type === 'text' && <p className="break-words leading-relaxed whitespace-pre-wrap text-[15px]">{msg.content}</p>}
+
+                              {msg.type === 'file' && (
+                                  <div className={`w-full sm:w-72 rounded-[20px] p-3 ${isError ? 'bg-red-50 dark:bg-red-900/20' : isMe ? 'bg-indigo-800/30' : 'bg-slate-100 dark:bg-slate-900/50'} border ${isError ? 'border-red-200 dark:border-red-500/30' : isMe ? 'border-indigo-400/20' : 'border-slate-200 dark:border-white/5'}`}>
+                                      <div className="flex items-center gap-3 mb-3">
+                                          <div className={`p-2.5 rounded-2xl shrink-0 ${isError ? 'bg-red-200 dark:bg-red-500/20 text-red-600 dark:text-red-400' : isMe ? 'bg-indigo-500/20 text-white' : 'bg-emerald-100 dark:bg-slate-700 text-emerald-600 dark:text-emerald-400'}`}>
+                                              {isError ? <AlertTriangle size={20}/> : <FileIcon size={20} />}
+                                          </div>
+                                          <div className="overflow-hidden min-w-0 flex-1">
+                                              <p className="font-bold truncate text-sm mb-0.5" title={msg.fileMeta?.name}>{msg.fileMeta?.name}</p>
+                                              <p className="text-[10px] opacity-70 font-mono">
+                                                  {((msg.fileMeta?.size || 0) / (1024 * 1024)).toFixed(2)} MB
+                                              </p>
+                                          </div>
+                                      </div>
+                                      
+                                      {msg.status === 'completed' ? (
+                                          isMe ? (
+                                            <div className="text-xs flex items-center justify-center gap-1.5 opacity-90 font-medium bg-black/20 py-2 rounded-xl w-full border border-white/5 text-white">
+                                                <CheckCheck size={14} /> 传输成功
+                                            </div>
+                                          ) : (
+                                            <a href={msg.fileUrl} download={msg.fileMeta?.name} className="block w-full">
+                                                <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:scale-[1.02] border-t border-white/10">
+                                                    <Download size={14} /> 下载
+                                                </button>
+                                            </a>
+                                          )
+                                      ) : msg.status === 'error' ? (
+                                          <div className="text-xs flex items-center justify-center gap-1.5 opacity-90 font-bold text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-500/10 py-2 rounded-xl w-full border border-red-200 dark:border-red-500/20">
+                                              <X size={14} /> 传输失败
+                                          </div>
+                                      ) : (
+                                          <div className="space-y-1.5">
+                                              <div className="flex justify-between text-[10px] font-bold tracking-wide uppercase opacity-70">
+                                                  <span>{msg.sender === 'me' ? 'Uploading...' : 'Downloading...'}</span>
+                                                  <span>{msg.progress}%</span>
+                                              </div>
+                                              <ProgressBar progress={msg.progress || 0} heightClass="h-1.5" colorClass={isError ? "bg-red-500" : isMe ? "bg-white" : "bg-emerald-400"} />
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+
+                          <div className={`text-[10px] flex items-center gap-1 absolute -bottom-5 ${isMe ? 'right-0' : 'left-0'} font-medium text-slate-400 dark:text-slate-500 transition-opacity ${isSequence ? 'opacity-0 group-hover:opacity-100' : 'opacity-60'}`}>
+                              {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              {isMe && <CheckCheck size={14} className={msg.status === 'completed' || msg.type === 'text' ? "text-indigo-400" : msg.status === 'error' ? "text-red-500" : "text-slate-400 dark:text-slate-600"} />}
+                          </div>
+                      </div>
+                  </div>
+              )
+          })}
+          </div>
+          <div ref={messagesEndRef} />
+      </div>
+
+      {/* INPUT AREA */}
+      <div className="p-3 md:p-5 pb-4 md:pb-5 bg-white/95 dark:bg-slate-900/90 border-t border-slate-200 dark:border-white/5 backdrop-blur-xl z-20 safe-area-bottom transition-colors">
+          {isTransferring && (
+            <div className="mb-3 animate-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold">
+                    <span className="flex items-center gap-2"><Smartphone size={14}/> 传输中请保持屏幕常亮</span>
+                    <span className="animate-pulse">不要切换应用</span>
+                </div>
+            </div>
+          )}
+          <div className="flex items-end gap-2 md:gap-3 relative">
+              <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  onChange={onFileSelect}
+                  disabled={isTransferring}
+              />
+              <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isTransferring} 
+                  className={`p-3 md:p-3.5 rounded-full transition-all shrink-0 shadow-lg ${isTransferring ? 'opacity-30 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500/50'}`}
+                  title="发送文件"
+              >
+                  <Paperclip size={20} className="md:w-[22px] md:h-[22px]" />
+              </button>
+              
+              <div className="flex-1 relative group">
+                  <textarea
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder={isTransferring ? "传输期间文本输入已锁定..." : "发送消息..."}
+                      disabled={isTransferring}
+                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-[28px] py-3 pl-5 pr-10 md:py-3.5 md:pl-6 md:pr-12 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none resize-none min-h-[48px] md:min-h-[52px] text-base shadow-inner transition-all"
+                      rows={1}
+                      style={{ height: 'auto', minHeight: '48px' }}
+                  />
+                  {inputText && (
+                    <div className="hidden md:block absolute right-4 bottom-3.5 text-xs text-slate-400 font-mono">Enter</div>
+                  )}
+              </div>
+              
+              <button 
+                  onClick={sendMessage}
+                  disabled={!inputText.trim() || isTransferring}
+                  className={`p-3 md:p-3.5 rounded-full transition-all shrink-0 shadow-lg flex items-center justify-center ${
+                      !inputText.trim() || isTransferring 
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-700' 
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95 border-t border-white/10'
+                  }`}
+              >
+                  {isTransferring ? <Loader2 size={20} className="animate-spin md:w-[22px] md:h-[22px]" /> : <ArrowUpCircle size={22} className="md:w-[24px] md:h-[24px]" />}
+              </button>
+          </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen flex flex-col items-center relative overflow-hidden font-sans selection:bg-indigo-500/30 transition-colors duration-500">
+       
+       <div className="fixed inset-0 tech-grid z-0 opacity-40"></div>
+       
+       {appState !== AppState.CHAT && (
+           <div className="absolute top-6 right-6 md:top-8 md:right-8 z-50 animate-in fade-in duration-700">
+               <button 
+                   onClick={toggleTheme}
+                   className="p-3 rounded-full bg-white/10 dark:bg-slate-800/50 backdrop-blur-md border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-700/50 transition-all shadow-lg hover:scale-110"
+                   title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+               >
+                   {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+               </button>
+           </div>
+       )}
+
+       {appState === AppState.SETUP && (
+         <div className="absolute top-4 left-4 md:top-6 md:left-6 z-50 flex gap-3 items-center animate-in fade-in duration-300">
+            {serverStatus === 'connecting' && <div className="bg-slate-900/80 border border-yellow-500/30 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg animate-pulse"><Loader2 size={12} className="animate-spin"/> 连接服务器...</div>}
+            {serverStatus === 'disconnected' && (
+                <button onClick={reconnectPeer} className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg hover:bg-red-500/20 transition-all cursor-pointer group">
+                    <RefreshCw size={12} className="group-hover:rotate-180 transition-transform"/> 服务器离线
+                </button>
+            )}
+            {serverStatus === 'connected' && (
+                 <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    在线
+                 </div>
+            )}
+         </div>
+       )}
+
+       {showHelp && (
+           <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowHelp(false)}>
+               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 p-6 md:p-8 rounded-[40px] max-w-md w-full shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+                   <div className="flex justify-between items-center mb-6">
+                       <h3 className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white"><Sparkles className="text-yellow-500 dark:text-yellow-400" size={20}/> 核心技术原理</h3>
+                       <button onClick={() => setShowHelp(false)} className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-100 dark:bg-white/5 p-2 rounded-full"><X size={20}/></button>
+                   </div>
+                   <div className="space-y-5 text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                       <p>NexusDrop 使用前沿的 <span className="text-indigo-600 dark:text-indigo-400 font-bold">WebRTC</span> 技术实现浏览器间的直接通信。</p>
+                       
+                       <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-200 dark:border-white/5">
+                           <div className="flex items-center gap-3 mb-2">
+                               <Server size={18} className="text-indigo-500 dark:text-indigo-400"/>
+                               <strong className="text-slate-900 dark:text-white">1. 信令握手</strong>
+                           </div>
+                           <p className="text-xs text-slate-500 dark:text-slate-400 pl-8">设备A和设备B通过服务器交换“网络名片”（SDP信息）。这就像两个人互换电话号码。</p>
+                       </div>
+
+                       <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-200 dark:border-white/5">
+                           <div className="flex items-center gap-3 mb-2">
+                               <ShieldCheck size={18} className="text-emerald-500 dark:text-emerald-400"/>
+                               <strong className="text-slate-900 dark:text-white">2. P2P 直连</strong>
+                           </div>
+                           <p className="text-xs text-slate-500 dark:text-slate-400 pl-8">一旦“电话”打通，服务器立即断开。您的文件直接从设备A飞到设备B，<span className="text-emerald-600 dark:text-emerald-400">不经过任何云端存储</span>。</p>
+                       </div>
+                   </div>
+                   <button onClick={() => setShowHelp(false)} className="w-full mt-8 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 rounded-full font-bold transition-opacity">明白，开始传输</button>
+               </div>
+           </div>
+       )}
+
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-indigo-500/10 rounded-full blur-[120px] animate-float opacity-40"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-emerald-500/10 dark:bg-emerald-600/5 rounded-full blur-[120px] animate-float opacity-30" style={{animationDelay: '-3s'}}></div>
+      </div>
+
+      <header className={`w-full text-center z-10 transition-all duration-700 ease-out ${appState === AppState.CHAT ? 'hidden md:flex py-6' : 'flex py-8 md:py-24'} ${appState === AppState.SETUP ? 'py-6' : ''}`}>
+        {appState === AppState.HOME ? (
+            <div className="animate-in fade-in slide-in-from-top-8 duration-1000 px-4 flex items-center justify-center gap-4">
+                <NexusLogo size={64} className="animate-float" />
+                <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 via-slate-800 to-slate-500 dark:from-white dark:via-white dark:to-slate-500 mb-0 tracking-tighter drop-shadow-2xl dark:drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                    Nexus<span className="text-indigo-600 dark:text-indigo-500 inline-block hover:scale-105 transition-transform cursor-default">Drop</span>
+                </h1>
+            </div>
+        ) : (
+            <div onClick={resetToHome} className="cursor-pointer group inline-flex items-center gap-3">
+                <NexusLogo size={32} />
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors drop-shadow-lg">
+                    Nexus<span className="text-indigo-600 dark:text-indigo-500">Drop</span>
+                </h1>
+            </div>
+        )}
+      </header>
+
+      <main className={`flex-1 flex flex-col items-center w-full z-10 ${appState === AppState.CHAT ? 'justify-end md:justify-center p-0 md:px-4 md:pb-12' : 'justify-center px-4 pb-12'}`}>
+        {appState === AppState.HOME && renderHome()}
+        {appState === AppState.SETUP && renderSetup()}
+        {appState === AppState.CHAT && renderChat()}
+      </main>
     </div>
   );
 };
