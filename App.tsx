@@ -284,7 +284,6 @@ const App: React.FC = () => {
       if (timeSinceLastPong > 10000 && connectionStatus === 'Connected') {
           addLog("❌ 心跳超时 (10s)，判定对方已掉线");
           setConnectionStatus('Disconnected');
-          // Optional: Attempt auto-reconnect logic here if needed
       }
     }, 4000); 
   };
@@ -309,11 +308,9 @@ const App: React.FC = () => {
             scannerRef.current = html5QrCode;
             
             // Optimized config for full-screen recognition
-            const aspectRatio = window.innerWidth / window.innerHeight;
             const config = { 
               fps: 10, 
               // IMPORTANT: Removed qrbox constraint to enable full-frame scanning
-              aspectRatio: aspectRatio, 
               disableFlip: false,
               useBarCodeDetectorIfSupported: true,
               videoConstraints: {
@@ -1255,8 +1252,6 @@ const App: React.FC = () => {
   );
 
   const renderChat = () => (
-    // Mobile: Full screen fixed overlay for native app feel
-    // Desktop: Centered card
     <div className="fixed inset-0 z-50 md:static md:w-full md:h-[800px] md:max-w-3xl flex flex-col glass-panel md:rounded-[40px] rounded-none overflow-hidden shadow-2xl md:shadow-black/50 animate-in fade-in zoom-in-95 duration-500 md:border border-slate-200 dark:border-white/10 bg-slate-50 md:bg-white/50 dark:bg-[#020617] md:dark:bg-transparent">
       
       {/* CHAT HEADER */}
