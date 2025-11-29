@@ -284,6 +284,7 @@ const App: React.FC = () => {
       if (timeSinceLastPong > 10000 && connectionStatus === 'Connected') {
           addLog("❌ 心跳超时 (10s)，判定对方已掉线");
           setConnectionStatus('Disconnected');
+          // Optional: Attempt auto-reconnect logic here if needed
       }
     }, 4000); 
   };
