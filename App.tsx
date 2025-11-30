@@ -22,7 +22,6 @@ import {
   ArrowUpCircle,
   Activity,
   HelpCircle,
-  Terminal, // Keep Terminal icon for now, might be used elsewhere
   Server,
   RefreshCw,
   Sparkles,
@@ -39,7 +38,7 @@ import {
 
 // --- ICONS ---
 
-const NexusLogo = ({ className = "", size = 40 }: { className?: string, size?: number }) => (
+export const NexusLogo = ({ className = "", size = 40 }: { className?: string, size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${className} drop-shadow-sm`}>
     <defs>
       <linearGradient id="nexus-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
@@ -57,7 +56,6 @@ const NexusLogo = ({ className = "", size = 40 }: { className?: string, size?: n
 );
 
 // Main Component
-// Fix: Add 'export' keyword to make App component a named export.
 export const App: React.FC = () => {
   // --- STATE ---
   const [appState, setAppState] = useState<AppState>(AppState.HOME);
@@ -83,9 +81,8 @@ export const App: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  // const [showLogs, setShowLogs] = useState(false); // REMOVED: System logs state
   const [showHelp, setShowHelp] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<string[]>([]); // Retained for console output only, UI button removed
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Chat & Transfer State
@@ -375,7 +372,6 @@ export const App: React.FC = () => {
       const msg = "PeerJS 组件尚未加载完成，请检查网络连接 (CDN)";
       setErrorMsg(msg);
       addLog("CRITICAL ERROR: window.Peer is undefined");
-      // setShowLogs(true); // System logs button and overlay already removed
       return null;
     }
 
@@ -435,7 +431,6 @@ export const App: React.FC = () => {
         else if (err.type === 'browser-incompatible') msg = "您的浏览器不支持 WebRTC";
         
         setErrorMsg(msg);
-        // setShowLogs(true); // System logs button and overlay already removed
       });
 
       peerRef.current = peer;
@@ -444,7 +439,6 @@ export const App: React.FC = () => {
       addLog(`初始化异常: ${e.message}`);
       setErrorMsg("初始化失败: " + e.message);
       setAppState(AppState.ERROR);
-      // setShowLogs(true); // System logs button and overlay already removed
       return null;
     }
   }, []);
@@ -974,7 +968,7 @@ export const App: React.FC = () => {
           <div className="w-16 h-16 md:w-24 md:h-24 mb-4 md:mb-6 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-indigo-100 dark:border-indigo-500/20 shrink-0">
              <Wifi className="w-8 h-8 md:w-12 md:h-12 text-indigo-500" />
           </div>
-          <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4">我要发送</h2>
+          <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4 whitespace-nowrap overflow-hidden text-ellipsis">我要发送</h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8 whitespace-nowrap overflow-hidden text-ellipsis">
               创建加密房间，生成口令分享给接收方。
           </p>
@@ -993,7 +987,7 @@ export const App: React.FC = () => {
           <div className="w-16 h-16 md:w-24 md:h-24 mb-4 md:mb-6 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-emerald-100 dark:border-emerald-500/20 shrink-0">
             <Download className="w-8 h-8 md:w-12 md:h-12 text-emerald-500" />
           </div>
-          <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4">我要接收</h2>
+          <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4 whitespace-nowrap overflow-hidden text-ellipsis">我要接收</h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8 whitespace-nowrap overflow-hidden text-ellipsis">
               输入口令或扫描二维码，建立安全连接。
           </p>
@@ -1019,7 +1013,6 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800/60 p-1 rounded-full border border-slate-300/50 dark:border-white/5 backdrop-blur-sm">
-           {/* System Logs Button Removed */}
            <button onClick={() => setShowHelp(true)} className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="核心技术原理">
                <Sparkles size={16} className="md:w-[18px] md:h-[18px]" />
            </button>
@@ -1033,7 +1026,7 @@ export const App: React.FC = () => {
       {role === 'sender' ? (
         <div className="space-y-6">
            <div className="bg-slate-100 dark:bg-slate-950/50 p-8 rounded-[30px] border border-dashed border-slate-300 dark:border-slate-700 text-center relative group transition-colors flex flex-col items-center justify-center min-h-[320px]">
-             <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[30px]"></div>
+             <div className="absolute inset-0 bg-indigo-500/5 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[30px] pointer-events-none"></div>
              
              {isGeneratingId ? (
                 <div className="flex flex-col items-center gap-4">
@@ -1045,9 +1038,10 @@ export const App: React.FC = () => {
                   {!showTextCode ? (
                     <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
                         <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6 w-48 h-48 md:w-56 md:h-56 aspect-square flex items-center justify-center">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-full h-full object-contain mix-blend-multiply" />
+                            {/* Fix: Explicitly convert peerId to a primitive string for encodeURIComponent */}
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(String(peerId))}&bgcolor=ffffff`} alt="QR" className="w-full h-full object-contain mix-blend-multiply" />
                         </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">使用另一台设备扫描连接</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 whitespace-nowrap overflow-hidden text-ellipsis">使用另一台设备扫描连接</p>
                         <button 
                             onClick={() => setShowTextCode(true)}
                             className="flex items-center gap-2 px-6 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-full text-sm font-bold transition-all border border-slate-300 dark:border-slate-700"
@@ -1057,7 +1051,7 @@ export const App: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center w-full animate-in fade-in zoom-in duration-300">
-                        <p className="text-xs text-indigo-500 dark:text-indigo-400 mb-4 uppercase tracking-widest font-bold">ROOM CODE</p>
+                        <p className="text-xs text-indigo-500 dark:text-indigo-400 mb-4 uppercase tracking-widest font-bold whitespace-nowrap overflow-hidden text-ellipsis">ROOM CODE</p>
                         <span className="text-4xl md:text-5xl font-mono font-bold text-slate-900 dark:text-white tracking-tight mb-8 drop-shadow-sm select-all break-all text-center">
                             {peerId || '...'}
                         </span>
@@ -1116,7 +1110,7 @@ export const App: React.FC = () => {
                             if(errorMsg) setErrorMsg(''); 
                         }}
                         placeholder="或者输入房间口令"
-                        className={`w-full h-16 bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-14 pr-6 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none resize-none min-h-[48px] md:min-h-[52px] text-base shadow-inner transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600`}
+                        className={`w-full h-16 bg-slate-50 dark:bg-slate-950/50 border ${errorMsg ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'} text-slate-900 dark:text-white pl-14 pr-6 rounded-full focus:ring-1 focus:ring-emerald-500/50 outline-none resize-none text-base shadow-inner transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600`}
                       />
                     </div>
                 </div>
@@ -1128,7 +1122,6 @@ export const App: React.FC = () => {
                             <p className="font-bold text-red-700 dark:text-red-100 mb-1">连接受阻</p>
                             {errorMsg}
                             <div className="mt-3 flex gap-4">
-                                {/* <button onClick={() => setShowLogs(true)} className="text-slate-900 dark:text-white underline decoration-red-400/50 underline-offset-2 text-xs hover:decoration-red-400">查看日志</button> */}
                                 <button onClick={reconnectPeer} className="text-slate-900 dark:text-white underline decoration-red-400/50 underline-offset-2 text-xs hover:decoration-red-400">重置网络</button>
                             </div>
                         </div>
@@ -1149,9 +1142,9 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Server Status Indicator (Global) - Only visible in Setup, positioned at bottom */}
+      {/* Server Status Indicator (Global) - Only visible in Setup, positioned at bottom-center */}
       {appState === AppState.SETUP && (
-         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300 bg-slate-900/80 border border-slate-700 dark:border-white/5 text-slate-400 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg">
+         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300 bg-slate-900/80 border border-slate-700 dark:border-white/5 text-slate-400 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg pb-safe-bottom">
             {serverStatus === 'connecting' && <div className="flex items-center gap-2"><Loader2 size={12} className="animate-spin text-yellow-400"/> 连接服务器...</div>}
             {serverStatus === 'disconnected' && (
                 <button onClick={reconnectPeer} className="flex items-center gap-2 text-red-400 group">
@@ -1170,9 +1163,45 @@ export const App: React.FC = () => {
          </div>
        )}
 
-      {/* DEBUG LOGS OVERLAY - REMOVED */}
+      {/* HELP MODAL */}
+      {showHelp && (
+           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 sm:p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+               <div className="glass-panel p-6 md:p-8 rounded-[40px] max-w-lg w-full relative border border-slate-200 dark:border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl text-slate-900 dark:text-white animate-in zoom-in-95 fade-in-0 duration-300">
+            <button 
+              onClick={() => setShowHelp(false)} 
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors" title="关闭"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-2xl font-bold mb-4 flex items-center gap-3">
+              <Sparkles className="text-indigo-500" /> NexusDrop 核心技术
+            </h3>
+            <div className="space-y-4 text-sm md:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+              <p>NexusDrop 是一款基于 WebRTC (Web Real-Time Communication) 技术的点对点 (P2P) 文件传输工具。它允许您直接在浏览器之间安全、快速地共享文件，而无需将文件上传到任何服务器。</p>
+              <h4 className="font-bold text-lg md:text-xl text-slate-800 dark:text-white mt-6 mb-2">工作原理：</h4>
+              <ul className="list-disc list-inside space-y-2">
+                <li><strong>P2P 直连：</strong> 两个浏览器之间会尝试建立一个直接的数据通道。这意味着文件数据不会经过任何第三方服务器，而是直接从发送方传输到接收方。</li>
+                <li><strong>信令服务器 (PeerJS)：</strong> 为了实现 P2P 连接，两个客户端需要交换一些元数据（如 IP 地址、端口等），这个过程称为“信令”。NexusDrop 使用 PeerJS 库，并通过 Bilibili、Xiaomi、Google 的 STUN/TURN 服务器来协助信令交换和 NAT 穿透。信令服务器只负责撮合连接，不处理文件数据。</li>
+                <li><strong>端到端加密 (内置)：</strong> WebRTC 协议本身就内置了强大的加密机制（DTLS 和 SRTP）。所有通过 PeerJS 建立的连接数据都会自动加密，确保您的文件在传输过程中是安全的。</li>
+              </ul>
+              <h4 className="font-bold text-lg md:text-xl text-slate-800 dark:text-white mt-6 mb-2">关键优势：</h4>
+              <ul className="list-disc list-inside space-y-2">
+                <li><strong>隐私与安全：</strong> 文件不经过任何第三方服务器，传输内容被加密。</li>
+                <li><strong>速度快：</strong> 直接点对点传输，速度只受限于双方网络带宽。</li>
+                <li><strong>跨平台：</strong> 任何支持现代 WebRTC 的浏览器（桌面或移动）都可使用。</li>
+                <li><strong>口令生成：</strong> 使用 Google Gemini Pro AI 模型生成更易记的房间口令，提升用户体验。</li>
+              </ul>
+            </div>
+            <div className="mt-8 text-center">
+                <Button onClick={() => setShowHelp(false)} variant="primary" className="!bg-indigo-600 hover:!bg-indigo-500 shadow-lg shadow-indigo-500/25">
+                    我明白了
+                </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* MODERN QR SCANNER UI */}
+      {/* MODERN QR SCANNER UI - Placed at the very end to ensure it's on top of everything when active */}
       {isScanning && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
             <style>{`
@@ -1235,21 +1264,9 @@ export const App: React.FC = () => {
             </div>
         </div>
       )}
-
-      {appState === AppState.ERROR && (
-        <div className="glass-panel p-10 rounded-[40px] max-w-md w-full text-center border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.2)] bg-white/80 dark:bg-slate-900/80">
-            <div className="w-24 h-24 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
-                <AlertTriangle className="w-12 h-12 text-red-500" />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">连接中断</h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-sm">{errorMsg || "未知错误"}</p>
-            <Button variant="secondary" onClick={() => window.location.reload()} className="w-full">重新加载</Button>
-        </div>
-      )}
     </div>
   );
 
-  // Fix: This is the correct and only definition for renderChat.
   const renderChat = () => (
     // Mobile: Full screen fixed overlay for native app feel
     // Desktop: Centered card
@@ -1262,7 +1279,7 @@ export const App: React.FC = () => {
                  {role === 'sender' ? <Wifi size={16} className="md:w-6 md:h-6" /> : <Download size={16} className="md:w-6 md:h-6" />}
              </div>
              <div>
-                 <h3 className="font-bold text-slate-800 dark:text-white text-sm md:text-lg tracking-tight">加密传输通道</h3>
+                 <h3 className="font-bold text-slate-800 dark:text-white text-sm md:text-lg tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">加密传输通道</h3>
                  <div className="flex items-center gap-2 mt-0.5">
                      {connectionStatus === 'Connected' ? (
                         <>
@@ -1270,12 +1287,12 @@ export const App: React.FC = () => {
                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                              <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-emerald-500"></span>
                            </span>
-                           <span className="text-[10px] md:text-xs text-emerald-600 dark:text-emerald-400 font-medium tracking-wide uppercase">Direct P2P Link</span>
+                           <span className="text-[10px] md:text-xs text-emerald-600 dark:text-emerald-400 font-medium tracking-wide uppercase whitespace-nowrap overflow-hidden text-ellipsis">Direct P2P Link</span>
                         </>
                      ) : (
                         <>
                            <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-red-500"></span>
-                           <span className="text-[10px] md:text-xs text-red-500 dark:text-red-400 font-medium tracking-wide uppercase flex items-center gap-1">
+                           <span className="text-[10px] md:text-xs text-red-500 dark:text-red-400 font-medium tracking-wide uppercase flex items-center gap-1 whitespace-nowrap overflow-hidden text-ellipsis">
                              Lost 
                              <button onClick={() => connectToTarget(undefined, true)} className="underline hover:text-red-300 ml-1">重连</button>
                            </span>
@@ -1284,8 +1301,8 @@ export const App: React.FC = () => {
                  </div>
              </div>
          </div>
-         <div className="flex gap-2">
-             <button onClick={resetToHome} className="p-2 md:p-3 hover:bg-slate-200 dark:hover:bg-white/5 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all border border-transparent" title="断开连接">
+         <div className="flex gap-2 pointer-events-auto">
+             <button onClick={resetToHome} className="p-2 md:p-3 hover:bg-slate-200 dark:hover:bg-white/5 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors border border-transparent" title="断开连接">
                  <X size={20} />
              </button>
          </div>
@@ -1462,8 +1479,8 @@ export const App: React.FC = () => {
       {/* Background Grid Layer */}
       <div className="fixed inset-0 tech-grid z-0 opacity-40"></div>
        
-      {/* Global Header (absolute top, centers content vertically) */}
-      <header className={`absolute top-6 left-0 right-0 z-20 flex items-center justify-center px-4 md:px-6 transition-opacity duration-500 ${appState === AppState.CHAT ? 'opacity-0 md:opacity-100' : 'opacity-100'}`}>
+      {/* Global Header (always at top) */}
+      <header className={`absolute top-4 md:top-6 left-0 right-0 z-20 flex items-center justify-center px-4 md:px-6 transition-opacity duration-500 ${appState === AppState.CHAT ? 'opacity-0 md:opacity-100' : 'opacity-100'}`}>
         {appState === AppState.HOME ? (
             <div className="animate-in fade-in slide-in-from-top-8 duration-1000 flex items-center justify-center gap-4">
                 <NexusLogo size={64} className="animate-float" />
@@ -1481,7 +1498,7 @@ export const App: React.FC = () => {
         )}
       </header>
        
-      {/* Theme Toggle Button - positioned at bottom-left */}
+      {/* Theme Toggle Button - Only visible in Home/Setup, positioned bottom-left */}
       {appState !== AppState.CHAT && (
            <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8 z-50 animate-in fade-in duration-700">
                <button 
@@ -1494,62 +1511,8 @@ export const App: React.FC = () => {
            </div>
        )}
 
-       {/* Server Status Indicator (Global) - Only visible in Setup, positioned at bottom-center */}
-       {appState === AppState.SETUP && (
-         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300 bg-slate-900/80 border border-slate-700 dark:border-white/5 text-slate-400 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg">
-            {serverStatus === 'connecting' && <div className="flex items-center gap-2"><Loader2 size={12} className="animate-spin text-yellow-400"/> 连接服务器...</div>}
-            {serverStatus === 'disconnected' && (
-                <button onClick={reconnectPeer} className="flex items-center gap-2 text-red-400 group">
-                    <RefreshCw size={12} className="group-hover:rotate-180 transition-transform"/> 服务器离线
-                </button>
-            )}
-            {serverStatus === 'connected' && (
-                 <div className="flex items-center gap-2 text-emerald-400">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    在线
-                 </div>
-            )}
-         </div>
-       )}
-
-       {/* HELP MODAL */}
-       {showHelp && (
-           <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowHelp(false)}>
-               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 p-6 md:p-8 rounded-[40px] max-w-md w-full shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
-                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
-                   <div className="flex justify-between items-center mb-6">
-                       <h3 className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white"><Sparkles className="text-yellow-500 dark:text-yellow-400" size={20}/> 核心技术原理</h3>
-                       <button onClick={() => setShowHelp(false)} className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-100 dark:bg-white/5 p-2 rounded-full"><X size={20}/></button>
-                   </div>
-                   <div className="space-y-5 text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
-                       <p>NexusDrop 使用前沿的 <span className="text-indigo-600 dark:text-indigo-400 font-bold">WebRTC</span> 技术实现浏览器间的直接通信。</p>
-                       
-                       <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-200 dark:border-white/5">
-                           <div className="flex items-center gap-3 mb-2">
-                               <Server size={18} className="text-indigo-500 dark:text-indigo-400"/>
-                               <strong className="text-slate-900 dark:text-white">1. 信令握手</strong>
-                           </div>
-                           <p className="text-xs text-slate-500 dark:text-slate-400 pl-8">设备A和设备B通过服务器交换“网络名片”（SDP信息）。这就像两个人互换电话号码。</p>
-                       </div>
-
-                       <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-200 dark:border-white/5">
-                           <div className="flex items-center gap-3 mb-2">
-                               <ShieldCheck size={18} className="text-emerald-500 dark:text-emerald-400"/>
-                               <strong className="text-slate-900 dark:text-white">2. P2P 直连</strong>
-                           </div>
-                           <p className="text-xs text-slate-500 dark:text-slate-400 pl-8">一旦“电话”打通，服务器立即断开。您的文件直接从设备A飞到设备B，<span className="text-emerald-600 dark:text-emerald-400">不经过任何云端存储</span>。</p>
-                       </div>
-                   </div>
-                   <button onClick={() => setShowHelp(false)} className="w-full mt-8 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 rounded-full font-bold transition-opacity">明白，开始传输</button>
-               </div>
-           </div>
-       )}
-
-      {/* Main Content Area - Full screen on mobile chat */}
-      <main className={`flex-1 flex flex-col items-center w-full z-10 ${appState === AppState.CHAT ? 'p-0 md:px-4 md:pb-12' : 'justify-center px-4 pb-12'}`}>
+      {/* Main Content Area - Render based on appState */}
+      <main className={`flex-1 flex flex-col items-center w-full z-10 ${appState === AppState.CHAT ? 'p-0' : 'justify-center px-4'}`}>
         {appState === AppState.HOME && renderHome()}
         {appState === AppState.SETUP && renderSetup()}
         {appState === AppState.CHAT && renderChat()}
@@ -1564,8 +1527,6 @@ export const App: React.FC = () => {
            </div>
         )}
       </main>
-
-      {/* Global Footer (absolute bottom for consistent centering) --- REMOVED AS PER REQUEST --- */}
     </div>
   );
 };
