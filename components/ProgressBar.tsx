@@ -23,7 +23,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           {subLabel && <span className="text-sm font-medium text-slate-400">{subLabel}</span>}
         </div>
       )}
-      <div className={`w-full bg-slate-700/50 rounded-full overflow-hidden ${heightClass}`}>
+      <div className="w-full bg-slate-700/50 rounded-full overflow-hidden h-3">
         <div 
           className={`${colorClass} h-full rounded-full transition-all duration-300 ease-out`} 
           style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}

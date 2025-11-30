@@ -1144,7 +1144,7 @@ export const App: React.FC = () => {
 
       {/* Server Status Indicator (Global) - Only visible in Setup, positioned at bottom-center */}
       {appState === AppState.SETUP && (
-         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300 bg-slate-900/80 border border-slate-700 dark:border-white/5 text-slate-400 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg pb-safe-bottom">
+         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300 bg-slate-900/80 border border-slate-700 dark:border-white/5 text-slate-400 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg pb-safe-bottom">
             {serverStatus === 'connecting' && <div className="flex items-center gap-2"><Loader2 size={12} className="animate-spin text-yellow-400"/> 连接服务器...</div>}
             {serverStatus === 'disconnected' && (
                 <button onClick={reconnectPeer} className="flex items-center gap-2 text-red-400 group">
