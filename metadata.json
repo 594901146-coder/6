@@ -1,5 +1,7 @@
 {
   "name": "NexusDrop P2P",
   "description": "安全、无服务器的浏览器端点对点文件传输。使用 AI 生成安全连接口令。",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
