@@ -1,6 +1,6 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
-import { App } from './App'; // Named import
+import App from './App';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -13,30 +13,21 @@ interface ErrorBoundaryState {
 
 // Error Boundary Component to catch crashes
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState;
-  // Explicitly declare props as a readonly property to address the TypeScript error.
-  // Although `this.props` is implicitly available when extending `React.Component`,
-  // some strict TypeScript configurations might require this explicit declaration.
-  readonly props: Readonly<ErrorBoundaryProps>;
-
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
-
+  
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // You can also log the error to an error reporting service
-    console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
+    console.error("Uncaught error:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      // You can render any custom fallback UI
       return (
         <div style={{ 
           padding: '2rem', 

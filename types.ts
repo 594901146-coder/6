@@ -34,9 +34,5 @@ declare global {
   interface Window {
     Peer: any;
     Html5Qrcode: any;
-    Html5QrcodeSupportedFormats: {
-      QR_CODE: string;
-      // Other formats if needed
-    };
   }
 }
