@@ -1,38 +1,32 @@
 export enum AppState {
   HOME = 'HOME',
-  SETUP = 'SETUP', // Replaces SENDER/RECEIVER LOBBY for initial setup
-  CHAT = 'CHAT',   // The main chat room view
+  SENDER_LOBBY = 'SENDER_LOBBY',
+  RECEIVER_LOBBY = 'RECEIVER_LOBBY',
+  TRANSFERRING = 'TRANSFERRING',
+  COMPLETED = 'COMPLETED',
   ERROR = 'ERROR'
 }
 
 export interface FileMetadata {
-  id: string; // Unique ID for the file transfer
   name: string;
   size: number;
   type: string;
 }
 
-export interface ChatMessage {
-  id: string;
-  sender: 'me' | 'peer';
-  type: 'text' | 'file';
-  content?: string; // For text messages
-  fileMeta?: FileMetadata; // For file transfers
-  fileUrl?: string; // For completed downloads
-  progress?: number; // 0-100 for file transfers
-  timestamp: number;
-  status?: 'waiting' | 'transferring' | 'completed' | 'error';
+export interface TransferProgress {
+  bytesTransferred: number;
+  totalBytes: number;
+  percentage: number;
 }
 
 export interface PeerMessage {
-  type: 'TEXT' | 'FILE_START' | 'FILE_CHUNK' | 'ACK';
+  type: 'METADATA' | 'FILE' | 'ACK';
   payload: any;
 }
 
-// Global Declaration for CDN libraries
+// PeerJS Global Declaration since we are loading via CDN
 declare global {
   interface Window {
     Peer: any;
-    Html5Qrcode: any;
   }
 }
