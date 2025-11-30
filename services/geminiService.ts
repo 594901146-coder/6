@@ -26,7 +26,11 @@ export const generateConnectionPhrase = async (): Promise<string> => {
       contents: prompt,
     });
 
-    const text = response.text;
+    // Reinforce explicit type for the 'text' property from the Gemini API response.
+    // This addresses a common type error ('Type 'String' has no call signatures') that can occur
+    // if 'response.text' is mistakenly called as a method, or if type inference is somehow confused,
+    // despite current usage being correct as a property according to guidelines.
+    const text: string | undefined = response.text;
     if (text) {
       // Clean up any accidental whitespace or newlines
       const cleanId = text.trim().toLowerCase().replace(/[^a-z-]/g, '');

@@ -307,9 +307,6 @@ const App: React.FC = () => {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
             
-            // Optimized config for full-screen recognition
-            // No qrbox: scans entire frame.
-            // No fixed aspectRatio: uses camera's native ratio.
             const config = { 
               fps: 10, 
               disableFlip: false,
@@ -977,7 +974,7 @@ const App: React.FC = () => {
              <Wifi className="w-8 h-8 md:w-12 md:h-12 text-indigo-500" />
           </div>
           <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4">我要发送</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8">
+          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8 whitespace-normal md:whitespace-nowrap overflow-hidden text-ellipsis px-2">
               创建加密房间，生成口令分享给接收方。
           </p>
           <div className="hidden md:flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform">
@@ -996,7 +993,7 @@ const App: React.FC = () => {
             <Download className="w-8 h-8 md:w-12 md:h-12 text-emerald-500" />
           </div>
           <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2 md:mb-4">我要接收</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8">
+          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed mb-4 md:mb-8 whitespace-normal md:whitespace-nowrap overflow-hidden text-ellipsis px-2">
               输入口令或扫描二维码，建立安全连接。
           </p>
           <div className="hidden md:flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform">
@@ -1063,7 +1060,7 @@ const App: React.FC = () => {
                   ) : (
                     <div className="flex flex-col items-center w-full animate-in fade-in zoom-in duration-300">
                         <p className="text-xs text-indigo-500 dark:text-indigo-400 mb-4 uppercase tracking-widest font-bold">ROOM CODE</p>
-                        <span className="text-4xl md:text-5xl font-mono font-bold text-slate-900 dark:text-white tracking-tight mb-8 drop-shadow-sm select-all break-all text-center">
+                        <span className="text-3xl md:text-5xl font-mono font-bold text-slate-900 dark:text-white tracking-tight mb-8 drop-shadow-sm select-all break-all text-center">
                             {peerId || '...'}
                         </span>
                         <div className="flex flex-col md:flex-row gap-3 w-full justify-center">
@@ -1164,7 +1161,7 @@ const App: React.FC = () => {
 
       {/* DEBUG LOGS OVERLAY */}
       {showLogs && (
-        <div className="absolute bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 bg-slate-900/95 dark:bg-black/80 backdrop-blur-md p-4 rounded-3xl border border-slate-700 dark:border-slate-800 text-[10px] font-mono text-green-400/90 h-40 overflow-y-auto shadow-2xl custom-scrollbar animate-in slide-in-from-bottom-10">
+        <div className="absolute bottom-6 md:bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 bg-slate-900/95 dark:bg-black/80 backdrop-blur-md p-4 rounded-3xl border border-slate-700 dark:border-slate-800 text-[10px] font-mono text-green-400/90 h-40 overflow-y-auto shadow-2xl custom-scrollbar animate-in slide-in-from-bottom-10">
             <div className="flex justify-between sticky top-0 bg-transparent pb-2 mb-2 border-b border-white/10">
                 <span className="font-bold text-slate-300 flex items-center gap-2"><Activity size={12}/> 系统日志</span>
                 <span className="cursor-pointer text-slate-500 hover:text-white transition-colors" onClick={() => setLogs([])}>清空</span>
@@ -1243,7 +1240,7 @@ const App: React.FC = () => {
                 <AlertTriangle className="w-12 h-12 text-red-500" />
             </div>
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">连接中断</h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-sm">{errorMsg}</p>
+            <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-sm">{errorMsg || "未知错误"}</p>
             <Button variant="secondary" onClick={() => window.location.reload()} className="w-full">重新加载</Button>
         </div>
       )}
@@ -1462,7 +1459,7 @@ const App: React.FC = () => {
       {/* Background Grid Layer */}
       <div className="fixed inset-0 tech-grid z-0 opacity-40"></div>
        
-      {/* Global Header (always at top) */}
+      {/* Global Header (absolute top for consistent centering) */}
       <header className={`absolute top-6 left-0 right-0 z-20 flex items-center justify-center px-4 md:px-6 transition-opacity duration-500 ${appState === AppState.CHAT ? 'opacity-0 md:opacity-100' : 'opacity-100'}`}>
         {appState === AppState.HOME ? (
             <div className="animate-in fade-in slide-in-from-top-8 duration-1000 flex items-center justify-center gap-4">
@@ -1481,7 +1478,7 @@ const App: React.FC = () => {
         )}
       </header>
        
-      {/* Theme Toggle Button - Only visible in Home/Setup, positioned relative to its container */}
+      {/* Theme Toggle Button - Only visible in Home/Setup, positioned absolute */}
       {appState !== AppState.CHAT && (
            <div className="absolute top-6 right-6 md:top-8 md:right-8 z-50 animate-in fade-in duration-700">
                <button 
@@ -1494,9 +1491,9 @@ const App: React.FC = () => {
            </div>
        )}
 
-       {/* Server Status Indicator (Global) - Only visible in Setup */}
+       {/* Server Status Indicator (Global) - Only visible in Setup, positioned absolute bottom */}
        {appState === AppState.SETUP && (
-         <div className="absolute top-24 md:top-32 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300">
+         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300">
             {serverStatus === 'connecting' && <div className="bg-slate-900/80 border border-yellow-500/30 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg animate-pulse"><Loader2 size={12} className="animate-spin"/> 连接服务器...</div>}
             {serverStatus === 'disconnected' && (
                 <button onClick={reconnectPeer} className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg hover:bg-red-500/20 transition-all cursor-pointer group">
@@ -1549,7 +1546,7 @@ const App: React.FC = () => {
        )}
 
       {/* Main Content Area - Full screen on mobile chat */}
-      <main className={`flex-1 flex flex-col items-center w-full z-10 ${appState === AppState.CHAT ? 'p-0 md:px-4 md:pb-12' : 'justify-center px-4 pb-12'}`}>
+      <main className={`flex-1 flex flex-col items-center w-full z-10 ${appState === AppState.CHAT ? 'p-0 md:px-4 md:pb-12' : 'justify-center px-4'}`}>
         {appState === AppState.HOME && renderHome()}
         {appState === AppState.SETUP && renderSetup()}
         {appState === AppState.CHAT && renderChat()}
@@ -1565,8 +1562,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Global Footer (absolute bottom for consistent centering) */}
-      {/* Footer removed as per user request for minimalism */}
+      {/* Global Footer (removed) */}
     </div>
   );
 };
