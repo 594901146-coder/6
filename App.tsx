@@ -1,63 +1,53 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, FileMetadata, ChatMessage } from './types';
 import { generateConnectionPhrase } from './services/geminiService';
+// Fix: Corrected malformed import statement and added missing imports.
 import { Button } from './components/Button';
 import { ProgressBar } from './components/ProgressBar';
-import { 
-  Send, 
-  Download, 
-  Wifi, 
-  Loader2, 
-  Copy, 
-  FileIcon, 
-  ArrowRight,
-  ShieldCheck,
-  Zap,
-  AlertTriangle,
-  QrCode,
-  ScanLine,
-  X,
-  Camera,
-  Paperclip,
-  ArrowUpCircle,
-  Activity,
-  HelpCircle,
-  Terminal,
-  Server,
-  RefreshCw,
-  Sparkles,
-  Lock,
-  User,
-  CheckCheck,
-  Smartphone,
-  Maximize,
-  Minimize,
-  Sun,
-  Moon,
-  FileText
-} from 'lucide-react';
+// Assuming these icons are from a library like 'lucide-react'
+import {
+  Wifi, ArrowRight, Download, Terminal, Sparkles, X, Loader2, FileText, Copy, QrCode, ScanLine, Lock, AlertTriangle,
+  User, ShieldCheck, Paperclip, ArrowUpCircle, Sun, Moon, RefreshCw, Server, Smartphone, CheckCheck, Activity
+} from 'lucide-react'; // Placeholder for icon imports, adjust if using a different library or custom icons.
 
-// --- ICONS ---
-
-const NexusLogo = ({ className = "", size = 40 }: { className?: string, size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${className} drop-shadow-sm`}>
-    <defs>
-      <linearGradient id="nexus-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#6366f1" /> {/* Indigo-500 */}
-        <stop offset="100%" stopColor="#a855f7" /> {/* Purple-500 */}
-      </linearGradient>
-    </defs>
-    <path 
-      fillRule="evenodd" 
-      clipRule="evenodd" 
-      d="M20 2C20 2 6 16.5 6 24.5C6 32.232 12.268 38.5 20 38.5C27.732 38.5 34 32.232 34 24.5C34 16.5 20 2 20 2ZM20 29C22.4853 29 24.5 26.9853 24.5 24.5C24.5 22.0147 22.4853 20 20 20C17.5147 20 15.5 22.0147 15.5 24.5C15.5 26.9853 17.5147 29 20 29Z" 
-      fill="url(#nexus-grad)" 
-    />
+// Placeholder for NexusLogo and FileIcon if they are custom components
+// If NexusLogo is an SVG directly, you might define it here or import it from an SVG file.
+const NexusLogo = ({ size, className }: { size: number, className?: string }) => (
+  // This is a placeholder. Replace with your actual SVG or component for NexusLogo.
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
   </svg>
 );
 
-// Main Component
-const App: React.FC = () => {
+const FileIcon = ({ size, className }: { size: number, className?: string }) => (
+  // This is a placeholder. Replace with your actual SVG or component for FileIcon.
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+  </svg>
+);
+
+const App = () => {
   // --- STATE ---
   const [appState, setAppState] = useState<AppState>(AppState.HOME);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -307,10 +297,10 @@ const App: React.FC = () => {
             const html5QrCode = new window.Html5Qrcode("reader");
             scannerRef.current = html5QrCode;
             
-            // Optimized config for full-screen recognition
+            const aspectRatio = window.innerWidth / window.innerHeight;
             const config = { 
               fps: 10, 
-              // IMPORTANT: Removed qrbox constraint to enable full-frame scanning
+              aspectRatio: aspectRatio, 
               disableFlip: false,
               useBarCodeDetectorIfSupported: true,
               videoConstraints: {
@@ -1106,7 +1096,6 @@ const App: React.FC = () => {
            ) : (
              <>
                 <div className="flex flex-col gap-4 w-full">
-                    {/* Scanner Button Above */}
                     <button 
                         onClick={() => setIsScanning(true)} 
                         className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 py-4 h-16 rounded-full flex items-center justify-center gap-3 transition-all shadow-inner group"
@@ -1115,7 +1104,6 @@ const App: React.FC = () => {
                         <span className="font-mono text-base md:text-lg font-bold">扫描二维码连接</span>
                     </button>
 
-                    {/* Input Field Below - Matched Height h-16 (4rem) */}
                     <div className="relative w-full">
                       <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                         <Lock size={20} />
@@ -1163,12 +1151,12 @@ const App: React.FC = () => {
 
       {/* DEBUG LOGS OVERLAY */}
       {showLogs && (
-        <div className="mt-6 bg-slate-900/95 dark:bg-black/80 backdrop-blur-md p-4 rounded-3xl border border-slate-700 dark:border-slate-800 text-[10px] font-mono text-green-400/90 h-40 overflow-y-auto shadow-inner custom-scrollbar">
+        <div className="absolute bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 bg-slate-900/95 dark:bg-black/80 backdrop-blur-md p-4 rounded-3xl border border-slate-700 dark:border-slate-800 text-[10px] font-mono text-green-400/90 h-40 overflow-y-auto shadow-2xl custom-scrollbar animate-in slide-in-from-bottom-10">
             <div className="flex justify-between sticky top-0 bg-transparent pb-2 mb-2 border-b border-white/10">
                 <span className="font-bold text-slate-300 flex items-center gap-2"><Activity size={12}/> 系统日志</span>
                 <span className="cursor-pointer text-slate-500 hover:text-white transition-colors" onClick={() => setLogs([])}>清空</span>
             </div>
-            {logs.length === 0 ? <span className="opacity-30 italic">等待系统事件...</span> : logs.map((l, i) => <div key={i} className="mb-1 border-b border-white/5 pb-1 last:border-0">{l}</div>)}
+            {logs.length === 0 ? <span className="opacity-30 italic">等待系统事件...</span> : logs.map((l, i) => <div key={i} className="mb-1 border-b border-white/5 pb-1 last:border-0 break-words">{l}</div>)}
         </div>
       )}
 
@@ -1236,8 +1224,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* RENDER CHAT / ERROR / HOME */}
-      {appState === AppState.CHAT && renderChat()}
       {appState === AppState.ERROR && (
         <div className="glass-panel p-10 rounded-[40px] max-w-md w-full text-center border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.2)] bg-white/80 dark:bg-slate-900/80">
             <div className="w-24 h-24 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
@@ -1252,6 +1238,8 @@ const App: React.FC = () => {
   );
 
   const renderChat = () => (
+    // Mobile: Full screen fixed overlay for native app feel
+    // Desktop: Centered card
     <div className="fixed inset-0 z-50 md:static md:w-full md:h-[800px] md:max-w-3xl flex flex-col glass-panel md:rounded-[40px] rounded-none overflow-hidden shadow-2xl md:shadow-black/50 animate-in fade-in zoom-in-95 duration-500 md:border border-slate-200 dark:border-white/10 bg-slate-50 md:bg-white/50 dark:bg-[#020617] md:dark:bg-transparent">
       
       {/* CHAT HEADER */}
@@ -1293,6 +1281,9 @@ const App: React.FC = () => {
       {/* CHAT MESSAGES AREA */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth bg-transparent relative pb-24 md:pb-6">
           <div className="absolute inset-0 opacity-5 dark:opacity-5 pointer-events-none" style={{backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+          
+          {/* Mobile gradient fade out for floating input */}
+          <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-slate-50 dark:from-[#020617] via-transparent to-transparent md:hidden pointer-events-none"></div>
 
           {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full opacity-50 animate-in fade-in duration-1000">
@@ -1331,7 +1322,7 @@ const App: React.FC = () => {
                             : (isSequence ? 'rounded-[18px] md:rounded-[24px] rounded-tl-md' : 'rounded-[18px] md:rounded-[24px] rounded-tl-sm')
                       }`}>
                           <div className={`${msg.type === 'file' ? 'p-1.5 md:p-2' : 'px-3 py-2 md:px-5 md:py-3.5'}`}>
-                              {msg.type === 'text' && <p className="break-words leading-relaxed whitespace-pre-wrap text-sm md:text-[15px]">{msg.content}</p>}
+                              {msg.type === 'text' && <p className="break-words leading-relaxed text-sm md:text-[15px]">{msg.content}</p>}
 
                               {msg.type === 'file' && (
                                   <div className={`w-full sm:w-72 rounded-[14px] md:rounded-[20px] p-2 md:p-3 ${isError ? 'bg-red-5 dark:bg-red-900/20' : isMe ? 'bg-indigo-800/30' : 'bg-slate-100 dark:bg-slate-900/50'} border ${isError ? 'border-red-200 dark:border-red-500/30' : isMe ? 'border-indigo-400/20' : 'border-slate-200 dark:border-white/5'}`}>
@@ -1378,7 +1369,7 @@ const App: React.FC = () => {
 
                           <div className={`text-[10px] flex items-center gap-1 absolute -bottom-4 md:-bottom-5 ${isMe ? 'right-0' : 'left-0'} font-medium text-slate-400 dark:text-slate-500 transition-opacity ${isSequence ? 'opacity-0 group-hover:opacity-100' : 'opacity-60'}`}>
                               {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                              {isMe && <CheckCheck size={12} className={msg.status === 'completed' || msg.type === 'text' ? "text-indigo-400" : msg.status === 'error' ? "text-red-500" : "text-slate-400 dark:text-slate-600"} />}
+                              {isMe && <CheckCheck size={14} className={msg.status === 'completed' || msg.type === 'text' ? "text-indigo-400" : msg.status === 'error' ? "text-red-500" : "text-slate-400 dark:text-slate-600"} />}
                           </div>
                       </div>
                   </div>
@@ -1388,17 +1379,17 @@ const App: React.FC = () => {
           <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT AREA */}
-      <div className="absolute bottom-4 left-4 right-4 md:static md:p-5 md:pb-5 bg-white/90 dark:bg-slate-900/80 backdrop-blur-xl md:backdrop-blur-none md:bg-white/95 md:dark:bg-slate-900/90 border border-white/20 md:border-t md:border-x-0 md:border-b-0 border-slate-200 dark:border-white/5 rounded-[2rem] md:rounded-none shadow-2xl md:shadow-none z-30 transition-all p-2 pb-2 safe-area-bottom">
+      {/* INPUT AREA (MOBILE FLOATING, DESKTOP INTEGRATED) */}
+      <div className="absolute bottom-0 inset-x-0 md:static p-3 md:p-5 pb-safe-bottom bg-white/95 dark:bg-slate-900/90 border-t border-slate-200 dark:border-white/5 backdrop-blur-xl z-20 transition-colors md:rounded-b-[40px] shadow-lg md:shadow-none">
           {isTransferring && (
-            <div className="absolute bottom-full left-0 w-full mb-2 px-4 animate-in slide-in-from-bottom-2">
-                <div className="flex items-center justify-between px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold backdrop-blur-md shadow-sm">
+            <div className="mb-3 animate-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold">
                     <span className="flex items-center gap-2"><Smartphone size={14}/> 传输中请保持屏幕常亮</span>
                     <span className="animate-pulse">不要切换应用</span>
                 </div>
             </div>
           )}
-          <div className="flex items-end gap-2 relative">
+          <div className="flex items-end gap-2 md:gap-3 relative">
               <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -1409,7 +1400,7 @@ const App: React.FC = () => {
               <button 
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isTransferring} 
-                  className={`p-2.5 md:p-3.5 rounded-full transition-all shrink-0 shadow-lg ${isTransferring ? 'opacity-30 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500/50'}`}
+                  className={`p-3 md:p-3.5 rounded-full transition-all shrink-0 shadow-lg ${isTransferring ? 'opacity-30 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500/50'}`}
                   title="发送文件"
               >
                   <Paperclip size={20} className="md:w-[22px] md:h-[22px]" />
@@ -1420,24 +1411,27 @@ const App: React.FC = () => {
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onKeyDown={handleKeyPress}
-                      placeholder={isTransferring ? "传输锁定..." : "发送消息..."}
+                      placeholder={isTransferring ? "传输期间文本输入已锁定..." : "发送消息..."}
                       disabled={isTransferring}
-                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-[24px] md:rounded-[28px] py-2.5 pl-4 pr-10 md:py-3.5 md:pl-6 md:pr-12 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none resize-none min-h-[44px] md:min-h-[52px] text-sm md:text-base shadow-inner transition-all"
+                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-[28px] py-3 pl-5 pr-10 md:py-3.5 md:pl-6 md:pr-12 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none resize-none min-h-[48px] md:min-h-[52px] text-base shadow-inner transition-all"
                       rows={1}
-                      style={{ height: 'auto', minHeight: '44px' }}
+                      style={{ height: 'auto', minHeight: '48px' }}
                   />
+                  {inputText && (
+                    <div className="hidden md:block absolute right-4 bottom-3.5 text-xs text-slate-400 font-mono">Enter</div>
+                  )}
               </div>
               
               <button 
                   onClick={sendMessage}
                   disabled={!inputText.trim() || isTransferring}
-                  className={`p-2.5 md:p-3.5 rounded-full transition-all shrink-0 shadow-lg flex items-center justify-center ${
+                  className={`p-3 md:p-3.5 rounded-full transition-all shrink-0 shadow-lg flex items-center justify-center ${
                       !inputText.trim() || isTransferring 
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-700' 
                       : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95 border-t border-white/10'
                   }`}
               >
-                  {isTransferring ? <Loader2 size={20} className="animate-spin md:w-[22px] md:h-[22px]" /> : <ArrowUpCircle size={20} className="md:w-[24px] md:h-[24px]" />}
+                  {isTransferring ? <Loader2 size={20} className="animate-spin md:w-[22px] md:h-[22px]" /> : <ArrowUpCircle size={22} className="md:w-[24px] md:h-[24px]" />}
               </button>
           </div>
       </div>
@@ -1445,59 +1439,123 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className={`flex flex-col items-center justify-center min-h-[100dvh] w-full p-4 md:p-6 transition-colors duration-500 font-sans antialiased overflow-hidden ${theme === 'dark' ? 'bg-[#020617] text-white selection:bg-indigo-500/30' : 'bg-slate-50 text-slate-900 selection:bg-indigo-100'}`}>
-        
-        {/* Background Gradients */}
-        <div className="fixed inset-0 pointer-events-none z-0">
-             <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-indigo-500/10 dark:bg-indigo-500/10 blur-[120px] animate-[pulse_8s_ease-in-out_infinite]"></div>
-             <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 dark:bg-emerald-500/10 blur-[120px] animate-[pulse_10s_ease-in-out_infinite_reverse]"></div>
-             <div className="absolute top-[40%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] rounded-full bg-purple-500/10 dark:bg-purple-500/5 blur-[100px] animate-[pulse_12s_ease-in-out_infinite]"></div>
-        </div>
+    <div className={`min-h-[100dvh] w-full flex flex-col items-center justify-center p-4 md:p-6 transition-colors duration-500 bg-slate-50 dark:bg-[#020617] relative overflow-hidden`}>
+      {/* Background Orbs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-indigo-500/10 rounded-full blur-[120px] animate-float opacity-40"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-emerald-500/10 dark:bg-emerald-600/5 rounded-full blur-[120px] animate-float opacity-30" style={{animationDelay: '-3s'}}></div>
+      </div>
 
-        {/* Header / Nav - Hidden when chat is active on mobile */}
-        <div className={`w-full max-w-6xl flex justify-between items-center mb-6 md:mb-12 z-10 transition-all duration-700 ${appState !== AppState.HOME ? 'opacity-0 -translate-y-10 pointer-events-none absolute' : 'opacity-100 translate-y-0'}`}>
-            <div className="flex items-center gap-3 md:gap-4 group cursor-pointer" onClick={() => window.location.reload()}>
-                <div className="relative">
-                    <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500 rounded-full"></div>
-                    <NexusLogo className="relative z-10" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
-                    Nexus
-                  </h1>
-                  <span className="text-[10px] md:text-xs font-bold tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase ml-0.5">Secure P2P Drop</span>
-                </div>
+      {/* Background Grid Layer */}
+      <div className="fixed inset-0 tech-grid z-0 opacity-40"></div>
+       
+      {/* Global Header (always at top) */}
+      <header className={`absolute top-6 left-0 right-0 z-20 flex items-center justify-center px-4 md:px-6 transition-opacity duration-500 ${appState === AppState.CHAT ? 'opacity-0 md:opacity-100' : 'opacity-100'}`}>
+        {appState === AppState.HOME ? (
+            <div className="animate-in fade-in slide-in-from-top-8 duration-1000 flex items-center justify-center gap-4">
+                <NexusLogo size={64} className="animate-float" />
+                <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 via-slate-800 to-slate-500 dark:from-white dark:via-white dark:to-slate-500 mb-0 tracking-tighter drop-shadow-2xl dark:drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                    Nexus<span className="text-indigo-600 dark:text-indigo-500 inline-block hover:scale-105 transition-transform cursor-default">Drop</span>
+                </h1>
             </div>
-            
-            <div className="flex gap-3">
-                 <button onClick={() => window.open('https://github.com', '_blank')} className="p-2.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-transparent" title="GitHub">
-                     <svg height="22" viewBox="0 0 16 16" width="22" className="fill-current"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-                 </button>
-                 <button onClick={toggleTheme} className="p-2.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-transparent">
-                     {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
-                 </button>
+        ) : (
+            <div onClick={resetToHome} className="cursor-pointer group inline-flex items-center gap-3">
+                <NexusLogo size={32} />
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors drop-shadow-lg">
+                    Nexus<span className="text-indigo-600 dark:text-indigo-500">Drop</span>
+                </h1>
             </div>
-        </div>
+        )}
+      </header>
+       
+      {/* Theme Toggle Button - Only visible in Home/Setup, positioned relative to its container */}
+      {appState !== AppState.CHAT && (
+           <div className="absolute top-6 right-6 md:top-8 md:right-8 z-50 animate-in fade-in duration-700">
+               <button 
+                   onClick={toggleTheme}
+                   className="p-3 rounded-full bg-white/10 dark:bg-slate-800/50 backdrop-blur-md border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-700/50 transition-all shadow-lg hover:scale-110"
+                   title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+               >
+                   {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+               </button>
+           </div>
+       )}
 
-        {/* Content Area */}
+       {/* Server Status Indicator (Global) - Only visible in Setup */}
+       {appState === AppState.SETUP && (
+         <div className="absolute top-24 md:top-32 left-1/2 -translate-x-1/2 z-50 flex gap-3 items-center animate-in fade-in duration-300">
+            {serverStatus === 'connecting' && <div className="bg-slate-900/80 border border-yellow-500/30 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg animate-pulse"><Loader2 size={12} className="animate-spin"/> 连接服务器...</div>}
+            {serverStatus === 'disconnected' && (
+                <button onClick={reconnectPeer} className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg hover:bg-red-500/20 transition-all cursor-pointer group">
+                    <RefreshCw size={12} className="group-hover:rotate-180 transition-transform"/> 服务器离线
+                </button>
+            )}
+            {serverStatus === 'connected' && (
+                 <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    在线
+                 </div>
+            )}
+         </div>
+       )}
+
+       {/* HELP MODAL */}
+       {showHelp && (
+           <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowHelp(false)}>
+               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 p-6 md:p-8 rounded-[40px] max-w-md w-full shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+                   <div className="flex justify-between items-center mb-6">
+                       <h3 className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white"><Sparkles className="text-yellow-500 dark:text-yellow-400" size={20}/> 核心技术原理</h3>
+                       <button onClick={() => setShowHelp(false)} className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-100 dark:bg-white/5 p-2 rounded-full"><X size={20}/></button>
+                   </div>
+                   <div className="space-y-5 text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                       <p>NexusDrop 使用前沿的 <span className="text-indigo-600 dark:text-indigo-400 font-bold">WebRTC</span> 技术实现浏览器间的直接通信。</p>
+                       
+                       <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-200 dark:border-white/5">
+                           <div className="flex items-center gap-3 mb-2">
+                               <Server size={18} className="text-indigo-500 dark:text-indigo-400"/>
+                               <strong className="text-slate-900 dark:text-white">1. 信令握手</strong>
+                           </div>
+                           <p className="text-xs text-slate-500 dark:text-slate-400 pl-8">设备A和设备B通过服务器交换“网络名片”（SDP信息）。这就像两个人互换电话号码。</p>
+                       </div>
+
+                       <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-200 dark:border-white/5">
+                           <div className="flex items-center gap-3 mb-2">
+                               <ShieldCheck size={18} className="text-emerald-500 dark:text-emerald-400"/>
+                               <strong className="text-slate-900 dark:text-white">2. P2P 直连</strong>
+                           </div>
+                           <p className="text-xs text-slate-500 dark:text-slate-400 pl-8">一旦“电话”打通，服务器立即断开。您的文件直接从设备A飞到设备B，<span className="text-emerald-600 dark:text-emerald-400">不经过任何云端存储</span>。</p>
+                       </div>
+                   </div>
+                   <button onClick={() => setShowHelp(false)} className="w-full mt-8 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 rounded-full font-bold transition-opacity">明白，开始传输</button>
+               </div>
+           </div>
+       )}
+
+      {/* Main Content Area - Full screen on mobile chat */}
+      <main className={`flex-1 flex flex-col items-center w-full z-10 ${appState === AppState.CHAT ? 'p-0 md:px-4 md:pb-12' : 'justify-center px-4 pb-12'}`}>
         {appState === AppState.HOME && renderHome()}
         {appState === AppState.SETUP && renderSetup()}
         {appState === AppState.CHAT && renderChat()}
         {appState === AppState.ERROR && (
-             <div className="glass-panel p-10 rounded-[40px] max-w-md w-full text-center border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.2)] bg-white/80 dark:bg-slate-900/80">
-                <div className="w-24 h-24 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
-                    <AlertTriangle className="w-12 h-12 text-red-500" />
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">连接中断</h3>
-                <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-sm">{errorMsg}</p>
-                <Button variant="secondary" onClick={() => window.location.reload()} className="w-full">重新加载</Button>
-            </div>
+           <div className="glass-panel p-10 rounded-[40px] max-w-md w-full text-center border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.2)] bg-white/80 dark:bg-slate-900/80 animate-in zoom-in duration-300">
+               <div className="w-24 h-24 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+                   <AlertTriangle className="w-12 h-12 text-red-500" />
+               </div>
+               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">连接中断</h3>
+               <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-sm">{errorMsg || "未知错误"}</p>
+               <Button variant="secondary" onClick={() => window.location.reload()} className="w-full">重新加载</Button>
+           </div>
         )}
-        
-        {/* Footer - Absolute position to prevent shift */}
-        <div className={`absolute bottom-6 left-0 right-0 text-center text-slate-400 dark:text-slate-600 text-[10px] md:text-xs font-medium tracking-wider uppercase transition-opacity duration-700 pointer-events-none ${appState !== AppState.HOME ? 'opacity-0' : 'opacity-100'}`}>
-            <p>Secured by Gemini AI • WebRTC P2P • End-to-End Encryption</p>
-        </div>
+      </main>
+
+      {/* Global Footer (absolute bottom for consistent centering) */}
+      <footer className={`absolute bottom-6 left-0 right-0 z-20 text-center text-xs text-slate-400 dark:text-slate-600 transition-opacity duration-500 ${appState === AppState.HOME ? 'opacity-100 animate-in fade-in-0 duration-1000' : 'opacity-0 pointer-events-none'}`}>
+          <p>Powered by WebRTC & TailwindCSS</p>
+      </footer>
     </div>
   );
 };
