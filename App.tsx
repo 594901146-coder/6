@@ -1566,9 +1566,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Global Footer (absolute bottom for consistent centering) */}
-      <footer className={`absolute bottom-6 left-0 right-0 z-20 text-center text-xs text-slate-400 dark:text-slate-600 transition-opacity duration-500 ${appState === AppState.HOME ? 'opacity-100 animate-in fade-in-0 duration-1000' : 'opacity-0 pointer-events-none'}`}>
-          <p>Powered by WebRTC & TailwindCSS</p>
-      </footer>
+      {/* Footer removed as per user request for minimalism */}
     </div>
   );
 };
