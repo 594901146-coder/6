@@ -1012,8 +1012,8 @@ const App: React.FC = () => {
                 {role === 'sender' ? <Wifi size={20} className="md:w-6 md:h-6" /> : <Download size={20} className="md:w-6 md:h-6" />}
              </div>
              <div>
-                 <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white leading-none mb-1">{role === 'sender' ? '等待连接' : '加入传输'}</h2>
-                 <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">{role === 'sender' ? '分享下方口令' : '连接到发送方'}</p>
+                 <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white leading-none mb-1 whitespace-nowrap overflow-hidden text-ellipsis">{role === 'sender' ? '等待连接' : '加入传输'}</h2>
+                 <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis">{role === 'sender' ? '分享下方口令' : '连接到发送方'}</p>
              </div>
         </div>
 
@@ -1046,13 +1046,13 @@ const App: React.FC = () => {
                 <>
                   {!showTextCode ? (
                     <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-                        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-48 h-48 md:w-56 md:h-56 mix-blend-multiply" />
+                        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6 w-fit h-fit aspect-square">
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(peerId)}&bgcolor=ffffff`} alt="QR" className="w-full h-full object-contain mix-blend-multiply" />
                         </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">使用另一台设备扫描连接</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 whitespace-nowrap overflow-hidden text-ellipsis">使用另一台设备扫描连接</p>
                         <button 
                             onClick={() => setShowTextCode(true)}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-full text-sm font-bold transition-all border border-slate-300 dark:border-slate-700"
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-full text-sm font-bold transition-all border border-slate-300 dark:border-slate-700"
                         >
                             <FileText size={18} /> 显示文字口令
                         </button>
@@ -1561,10 +1561,9 @@ const App: React.FC = () => {
            </div>
         )}
       </main>
-
-      {/* Global Footer (removed) */}
     </div>
   );
 };
 
+// Export App component as default
 export default App;
