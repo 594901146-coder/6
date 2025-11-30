@@ -14,6 +14,10 @@ interface ErrorBoundaryState {
 // Error Boundary Component to catch crashes
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState;
+  // Explicitly declare props as a readonly property to address the TypeScript error.
+  // Although `this.props` is implicitly available when extending `React.Component`,
+  // some strict TypeScript configurations might require this explicit declaration.
+  readonly props: Readonly<ErrorBoundaryProps>;
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
